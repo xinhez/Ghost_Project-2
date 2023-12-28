@@ -92,7 +92,7 @@ sorter_parameters = {
     'whiten': True,  
     'clip_size': 50,
     'detect_threshold': 4,
-    'detect_interval': 3, 
+    'detect_interval': 30, 
 }
 
 ms_before = 1
