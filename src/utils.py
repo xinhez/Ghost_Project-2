@@ -14,12 +14,9 @@ from probeinterface.utils import combine_probes
 
 # from brpylib import NsxFile
 
-n_channel = 30 
-n_shank = 5
 memory_limit = '20G'
 n_s_per_min = 60
 n_ms_per_s = 1000
-n_channel_per_shank = 6
 
 blackrock_channel_indices = np.array([ 
     [ 5,  3,  1,  7,  9, 11], 
@@ -29,7 +26,7 @@ blackrock_channel_indices = np.array([
     [ 6,  8, 10,  4,  2,  0],
 ])
 
-intan_channel_incides = np.array([
+intan_channel_indices = np.array([
     [24, 23, 22, 27, 26, 25], 
     [ 0, 29, 28,  3,  2,  1], 
     [ 6,  5,  4,  9,  8,  7], 
@@ -44,6 +41,8 @@ def get_channels_from_the_same_shank(channel, channel_indices=blackrock_channel_
     raise Exception(f'channel {channel} does not exist')
 
 def create_probe(channel_indices):
+    n_shank = len(channel_indices)
+    n_channel = channel_indices.size
     shank_locations = np.array([[0, 0], [150, 200], [300, 400], [450, 200], [600, 0]])
 
     fig = plt.figure(figsize=(20, 10))
@@ -71,6 +70,7 @@ def create_probe(channel_indices):
     return multi_shank_probe, fig
 
 def preprocess_recording(recording, steps=['bp', 'cmr']):
+    sampling_frequency = int(recording.sampling_frequency)
     fns = {
         'bsA': lambda recording: spre.blank_staturation(recording, abs_threshold=250, direction='both', fill_value=0),
         'bsQ': lambda recording: spre.blank_staturation(recording, quantile_threshold=0.001, direction='both', fill_value=0, chunk_size=sampling_frequency * n_s_per_min),
@@ -92,7 +92,7 @@ sorter_parameters = {
     'whiten': True,  
     'clip_size': 50,
     'detect_threshold': 4,
-    'detect_interval': 30, 
+    'detect_interval': 3, # 0.3ms 
 }
 
 ms_before = 1
@@ -111,7 +111,7 @@ def remove_outlier(waveforms, quantile=0.05, percentage_threshold=0.75):
     return waveforms[bool_in_range]
 
 
-def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, savepath, sessions=False, n_frames_per_ms=None):
+def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, savepath, sessions=None, n_frames_per_ms=None):
     plt.rcParams.update({'font.size': 15})
     n_rows = 5
     n_cols = 3
@@ -253,51 +253,19 @@ def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, savepath,
     plt.close()
 
 
-# ******
-
-shanks = [
-    [ 0,  2,  4,  6,  8, 10],
-    [ 1,  3,  5,  7,  9, 11],
-    [12, 14, 16, 18, 20, 22],
-    [13, 15, 17, 19, 21, 23],
-    [24, 25, 26, 27, 28, 29],
-]
-n_channel_per_shank = 6
-assert n_shank * n_channel_per_shank == n_channel
-
-n_ms_per_s = 1000
-
-sampling_frequency = 10000
-
 ########## ########## ########## ########## ########## ########## ########## ##########  
-def find_fileformat_within_folder(folder, format, recursive, trim_stem):
-    if isinstance(format, str):
-        files = glob.glob(f'{folder}{os.sep}**{os.sep}*.{format}', recursive=recursive)
-        if trim_stem:
-            files = [file[len(f'{folder}{os.sep}'):] for file in files]
-        return files
-    elif isinstance(format, list):
-        all_files = []
-        for fm in format:
-            all_files.extend(find_fileformat_within_folder(folder, fm, recursive, trim_stem))
-        return all_files
-
-
-
-########## ########## ########## ########## ########## ########## ########## ##########
-
-
-
-########## ########## ########## ########## ########## ########## ########## ##########  
-
-def plot_traces(traces, title, savepath, trace_gap=200, shank_gap=500, fontsize=25):
+    
+def plot_traces(recording, channel_indices, title, savepath, trace_gap=250, shank_gap=500, fontsize=25):
+    traces = recording.get_traces().T 
+    sampling_frequency = int(recording.sampling_frequency)
+    n_shank, n_channel_per_shank = channel_indices.shape
+    n_channel = channel_indices.size
     plt.rcParams.update({'font.size': fontsize})
     duration = traces.shape[1] / sampling_frequency / n_s_per_min
     plt.figure(figsize=(10 * duration, 50))
     plt.title(f'{title} : {duration:0.2f} min')
 
-    for shank_i, shank in enumerate(shanks):
-            
+    for shank_i, shank in enumerate(channel_indices):
         for channel_i, channel in enumerate(shank):
             y_baseline = trace_gap * (channel_i + shank_i * n_channel_per_shank) + shank_gap * shank_i
             
