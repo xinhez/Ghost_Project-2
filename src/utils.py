@@ -111,7 +111,7 @@ def remove_outlier(waveforms, quantile=0.05, percentage_threshold=0.75):
     return waveforms[bool_in_range]
 
 
-def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, savepath, sessions=None, n_frames_per_ms=None):
+def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_indices, savepath, sessions=None, n_frames_per_ms=None):
     plt.rcParams.update({'font.size': 15})
     n_rows = 5
     n_cols = 3
@@ -157,9 +157,10 @@ def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, savepath,
 
 
     if sessions is not None: 
+        n_shank, n_channel_per_shank = channel_indices.shape
         mouse = sessions['mouse'].unique().item()
         unit_spike_train = sorting.get_unit_spike_train(unit_id)
-        unit_shank_waveforms = waveform_extractor.get_waveforms(unit_id)[:, :, get_channels_from_the_same_shank(extremum_channels[unit_id])]
+        unit_shank_waveforms = waveform_extractor.get_waveforms(unit_id)[:, :, get_channels_from_the_same_shank(extremum_channels[unit_id], channel_indices)]
         unit_shank_waveforms = unit_shank_waveforms.transpose(0, 2, 1).reshape(-1, (ms_before + ms_after) * n_frames_per_ms * n_channel_per_shank)
         dates = sorted(sessions['date'])
 
