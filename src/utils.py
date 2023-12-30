@@ -284,3 +284,48 @@ def plot_traces(recording, channel_indices, title, savepath, trace_gap=250, shan
 
 ########## ########## ########## ########## ########## ########## ########## ##########  
 
+def get_unit_session_spike_train(sorting, unit_id, session):
+    spike_train = sorting.get_unit_spike_train(unit_id=unit_id)
+    return spike_train[
+       (spike_train >= session['session_start'].item()) & (spike_train < (session['session_start'].item() + session['session_length'].item()))
+    ] - session['session_start'].item()
+
+def plot_isi_by_session(sorting, unit_id, sessions, savepath=None, window_ms=100, bin_ms=2):
+    plt.figure(figsize=(15, 15))
+    ax = plt.subplot(projection='3d')
+    ax.set_box_aspect((4, 20, 2))
+    ax.grid(False)
+    ax.xaxis.pane.fill = False
+    ax.yaxis.pane.fill = False
+    ax.zaxis.pane.fill = False
+    ax.xaxis.pane.set_edgecolor('w')
+    ax.yaxis.pane.set_edgecolor('w')
+    ax.zaxis.pane.set_edgecolor('w')
+
+    ax.set_xlabel('time (ms)')
+    ax.set_ylabel('sessions', labelpad=100)
+    ax.set_yticks(np.arange(len(sessions)), sessions['date'])
+    ax.tick_params(axis='y', pad=35)
+    ax.set_zlabel('frequency', labelpad=20)
+    ax.tick_params(axis='z', pad=10)
+    ax.set_zlim(0, 0.05)
+
+    bins = np.arange(0, window_ms, bin_ms)
+    n_frames_per_ms = sorting.sampling_frequency / n_ms_per_s
+
+    for z, date in enumerate(sessions['date']):
+        session = sessions[sessions['date'] == date]
+        spike_train_ms = get_unit_session_spike_train(sorting, unit_id, session) / n_frames_per_ms
+
+        isi = np.diff(spike_train_ms)
+        if (len(isi) == 0) or (isi.min()) > window_ms: continue
+
+        if len(isi) > 1:
+            bin_counts, bin_edges = np.histogram(isi, bins=bins, density=True)
+
+            ax.bar(bin_edges[:-1], bin_counts, zs=z, zdir='y', width=bin_ms, align="edge", label=date)
+    ax.set_title(f'ISI unit {unit_id}')
+    if savepath is not None:
+        plt.savefig(savepath, bbox_inches='tight')
+    plt.show()
+    plt.close()
