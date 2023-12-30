@@ -98,7 +98,9 @@ sorter_parameters = {
 ms_before = 1
 ms_after = 2
 
-def sample_indices(objects, max_n=10000):
+def sample_objects(objects, max_n=None):
+    if max_n is None:
+        return objects
     if len(objects) < max_n:
         return objects
     else:
@@ -110,6 +112,39 @@ def remove_outlier(waveforms, quantile=0.05, percentage_threshold=0.75):
     bool_in_range = ((((waveforms >= bounds[0:1]) & (waveforms <= bounds[1:2])).sum(1) / n_sample) > percentage_threshold)
     return waveforms[bool_in_range]
 
+def get_unit_session_spike_train(sorting, unit_id, session, as_indices):
+    n_frames_per_ms = sorting.sampling_frequency / n_ms_per_s
+    unit_spike_train = sorting.get_unit_spike_train(unit_id=unit_id)
+    session_spike_train_indices = np.where(
+        ( unit_spike_train >= ( session['session_start'].item() + ms_before * n_frames_per_ms ) ) &
+        ( unit_spike_train <= ( session['session_start'].item() + session['session_length'].item() - ms_after * n_frames_per_ms ) ) 
+    )[0]
+    if as_indices:
+        return session_spike_train_indices
+    else:
+        return unit_spike_train[session_spike_train_indices] - session['session_start'].item()
+    
+def split_unit_spike_train_indicies_by_date(sorting, unit_id, sessions):
+    dated_spike_trains = {}
+    for date in sorted(sessions['date']):
+        session = sessions[sessions['date'] == date]
+        dated_spike_trains[date] = get_unit_session_spike_train(sorting, unit_id, session, as_indices=True)
+    return dated_spike_trains
+
+def get_unit_shank_waveforms(waveform_extractor, extremum_channels, channel_indices, unit_id):
+    n_channel_per_shank = channel_indices.shape[1]
+    n_frames_per_ms = int(waveform_extractor.sampling_frequency / n_ms_per_s)
+    unit_shank_waveforms = waveform_extractor.get_waveforms(unit_id)[:, :, get_channels_from_the_same_shank(extremum_channels[unit_id], channel_indices)]
+    unit_shank_waveforms = unit_shank_waveforms.transpose(0, 2, 1).reshape(-1, (ms_before + ms_after) * n_frames_per_ms * n_channel_per_shank)
+    return unit_shank_waveforms
+
+def get_dated_waveforms_adata(waveforms, dated_spike_trains, max_count_per_date):
+    adatas = []
+    for date, spike_train in dated_spike_trains.items():
+        adata = ad.AnnData(waveforms[sample_objects(spike_train, max_count_per_date)])
+        adata.obs['date'] = date 
+        adatas.append(adata)
+    return ad.concat(adatas, index_unique='#')
 
 def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_indices, savepath, sessions=None, n_frames_per_ms=None):
     plt.rcParams.update({'font.size': 15})
@@ -133,7 +168,7 @@ def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_i
     sw.plot_isi_distribution(sorting, window_ms=150.0, bin_ms=1.0, unit_ids=[unit_id], axes=[ax])
 
     ax = plt.subplot(n_rows, n_cols, 7)
-    ax.plot(sample_indices(unit_extremum_waveforms).T, label=unit_id, lw=0.5)
+    ax.plot(sample_objects(unit_extremum_waveforms).T, label=unit_id, lw=0.5)
     ax.set_title(f'{unit_id} waveforms at ch {extremum_channels[unit_id]}')
 
     ax = plt.subplot(n_rows, n_cols, 8)
@@ -142,7 +177,7 @@ def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_i
 
     ax = plt.subplot(n_rows, n_cols, 10)
     if len(deoutlier_extremum_waveforms) > 0:
-        ax.plot(sample_indices(deoutlier_extremum_waveforms).T, label=unit_id, lw=0.5)
+        ax.plot(sample_objects(deoutlier_extremum_waveforms).T, label=unit_id, lw=0.5)
         ax.set_title(f'de-outlier {unit_id} waveforms at ch {extremum_channels[unit_id]}')
     else:
         ax.set_title(f'no waveforms left from de-outlier')
@@ -155,57 +190,24 @@ def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_i
     else:
         ax.set_title(f'no template left from de-outlier')
 
-
     if sessions is not None: 
-        n_shank, n_channel_per_shank = channel_indices.shape
-        mouse = sessions['mouse'].unique().item()
-        unit_spike_train = sorting.get_unit_spike_train(unit_id)
-        unit_shank_waveforms = waveform_extractor.get_waveforms(unit_id)[:, :, get_channels_from_the_same_shank(extremum_channels[unit_id], channel_indices)]
-        unit_shank_waveforms = unit_shank_waveforms.transpose(0, 2, 1).reshape(-1, (ms_before + ms_after) * n_frames_per_ms * n_channel_per_shank)
+        dated_spike_trains = split_unit_spike_train_indicies_by_date(sorting, unit_id, sessions)
+        unit_shank_waveforms = get_unit_shank_waveforms(waveform_extractor, extremum_channels, channel_indices, unit_id)
+        unit_shank_waveform_adata = get_dated_waveforms_adata(unit_shank_waveforms, dated_spike_trains, max_count_per_date=1000)
+        unit_extremum_waveform_adata = get_dated_waveforms_adata(unit_extremum_waveforms, dated_spike_trains, max_count_per_date=1000)
         dates = sorted(sessions['date'])
-
-        # Distribute spike trains to session dates.
-        dated_spike_trains = {}
-        for session_i in range(len(sessions)):
-            session = sessions.iloc[session_i:session_i+1]
-            spike_train = dated_spike_trains.get(session['date'].item(), [])
-            spike_train.append(np.where(
-                ( unit_spike_train >= ( session['session_start'].item() + ms_before * n_frames_per_ms ) ) &
-                ( unit_spike_train <= ( session['session_start'].item() + session['session_length'].item() - ms_after * n_frames_per_ms ) ) 
-            )[0])
-            dated_spike_trains[session['date'].item()] = spike_train
-        for date, spike_trains in dated_spike_trains.items():
-            dated_spike_trains[date] = np.concatenate(spike_trains)
-
-        # Create anndata for waveforms from the extremum shank (horizontally concatenated), labeled with the session date.
-        adatas = []
-        for date, spike_train in dated_spike_trains.items():
-            adata = ad.AnnData(unit_shank_waveforms[sample_indices(spike_train, 1000)])
-            adata.obs['date'] = date 
-            adata.obs['mouse'] = mouse 
-            adatas.append(adata)
-        unit_shank_waveform_adata = ad.concat(adatas, index_unique='#')
-
-        # Create anndata for waveforms from the extremum channel, labeled with the session date.
-        adatas = []
-        for date, spike_train in dated_spike_trains.items():
-            adata = ad.AnnData(unit_extremum_waveforms[sample_indices(spike_train, 1000)])
-            adata.obs['date'] = date 
-            adata.obs['mouse'] = mouse 
-            adatas.append(adata)
-        unit_extremum_waveform_adata = ad.concat(adatas, index_unique='#')
 
         ax = plt.subplot(n_rows, 2, 9)
         for date_i, date in enumerate(dates):
             date_shank_waveform_adata = unit_shank_waveform_adata[unit_shank_waveform_adata.obs['date'] == date]
-            ax.plot(date_shank_waveform_adata.X.mean(0))
+            ax.plot(date_shank_waveform_adata.X.mean(0), color=plt.cm.turbo(date_i / len(dates)))
             
         ax = plt.subplot(1, n_cols, 3)
         trace_gap = -100
         means = []
         for date_i, date in enumerate(dates):
             date_extremum_waveform_adata = unit_extremum_waveform_adata[unit_extremum_waveform_adata.obs['date'] == date]
-            ax.plot(date_extremum_waveform_adata.X.mean(0) + date_i * trace_gap)
+            ax.plot(date_extremum_waveform_adata.X.mean(0) + date_i * trace_gap, color=plt.cm.turbo(date_i / len(dates)))
 
         plt.savefig(f'{savepath}0.png', bbox_inches='tight')
         plt.close()
@@ -221,7 +223,7 @@ def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_i
         means = []
         for date_i, date in enumerate(dates):
             date_shank_waveform_adata = unit_shank_waveform_adata[unit_shank_waveform_adata.obs['date'] == date]
-            ax.scatter3D(date_shank_waveform_adata.obsm['X_umap'][:, 0], date_shank_waveform_adata.obsm['X_umap'][:, 1], date_i * shank_gap, s=2)
+            ax.scatter3D(date_shank_waveform_adata.obsm['X_umap'][:, 0], date_shank_waveform_adata.obsm['X_umap'][:, 1], date_i * shank_gap, s=2, color=plt.cm.turbo(date_i / len(dates)))
             means.append([date_shank_waveform_adata.obsm['X_umap'][:, 0].mean(), date_shank_waveform_adata.obsm['X_umap'][:, 1].mean(), date_i * shank_gap])
         means = np.array(means)
         ax.plot3D(means[:, 0], means[:, 1], means[:, 2])
@@ -281,14 +283,7 @@ def plot_traces(recording, channel_indices, title, savepath, trace_gap=250, shan
     plt.ylabel(r'200 $\mu$V gap between traces')
     plt.savefig(savepath, bbox_inches='tight')
     plt.close()
-
-########## ########## ########## ########## ########## ########## ########## ##########  
-
-def get_unit_session_spike_train(sorting, unit_id, session):
-    spike_train = sorting.get_unit_spike_train(unit_id=unit_id)
-    return spike_train[
-       (spike_train >= session['session_start'].item()) & (spike_train < (session['session_start'].item() + session['session_length'].item()))
-    ] - session['session_start'].item()
+    
 
 def plot_isi_by_session(sorting, unit_id, sessions, savepath=None, window_ms=100, bin_ms=2):
     plt.figure(figsize=(15, 15))
@@ -305,6 +300,7 @@ def plot_isi_by_session(sorting, unit_id, sessions, savepath=None, window_ms=100
     ax.set_xlabel('time (ms)')
     ax.set_ylabel('sessions', labelpad=100)
     ax.set_yticks(np.arange(len(sessions)), sessions['date'])
+    ax.set_ylim(0, len(sessions))
     ax.tick_params(axis='y', pad=35)
     ax.set_zlabel('frequency', labelpad=20)
     ax.tick_params(axis='z', pad=10)
@@ -315,7 +311,7 @@ def plot_isi_by_session(sorting, unit_id, sessions, savepath=None, window_ms=100
 
     for z, date in enumerate(sessions['date']):
         session = sessions[sessions['date'] == date]
-        spike_train_ms = get_unit_session_spike_train(sorting, unit_id, session) / n_frames_per_ms
+        spike_train_ms = get_unit_session_spike_train(sorting, unit_id, session, as_indices=False) / n_frames_per_ms
 
         isi = np.diff(spike_train_ms)
         if (len(isi) == 0) or (isi.min()) > window_ms: continue
@@ -323,7 +319,7 @@ def plot_isi_by_session(sorting, unit_id, sessions, savepath=None, window_ms=100
         if len(isi) > 1:
             bin_counts, bin_edges = np.histogram(isi, bins=bins, density=True)
 
-            ax.bar(bin_edges[:-1], bin_counts, zs=z, zdir='y', width=bin_ms, align="edge", label=date)
+            ax.bar(bin_edges[:-1], bin_counts, zs=z, zdir='y', width=bin_ms, align="edge", label=date, color=plt.cm.turbo(z/len(sessions)))
     ax.set_title(f'ISI unit {unit_id}')
     if savepath is not None:
         plt.savefig(savepath, bbox_inches='tight')
