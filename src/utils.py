@@ -1,5 +1,4 @@
 import anndata as ad
-import glob
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -11,8 +10,6 @@ from matplotlib.gridspec import GridSpec
 from probeinterface import generate_multi_columns_probe
 from probeinterface.plotting import plot_probe
 from probeinterface.utils import combine_probes
-
-# from brpylib import NsxFile
 
 memory_limit = '20G'
 n_s_per_min = 60
@@ -33,6 +30,22 @@ intan_channel_indices = np.array([
     [12, 11, 10, 15, 14, 13], 
     [18, 17, 16, 21, 20, 19],
 ])
+
+sorter_parameters = {
+    'detect_sign': -1,
+    'adjacency_radius': 120, 
+    'freq_min': None, 
+    'freq_max': None,
+    'filter': False,
+    'whiten': True,  
+    'clip_size': 50,
+    'detect_threshold': 4,
+    'detect_interval': 3, # 0.3ms 
+}
+
+ms_before, ms_after = 1, 2
+window_ms, bin_ms = 100, 1.5
+isi_threshold_ms = 1.5
 
 def get_channels_from_the_same_shank(channel, channel_indices=blackrock_channel_indices):
     for shank in blackrock_channel_indices:
@@ -82,22 +95,6 @@ def preprocess_recording(recording, steps=['bp', 'cmr']):
         recording = fns[step](recording)
     return recording
 
-
-sorter_parameters = {
-    'detect_sign': -1,
-    'adjacency_radius': 120, 
-    'freq_min': None, 
-    'freq_max': None,
-    'filter': False,
-    'whiten': True,  
-    'clip_size': 50,
-    'detect_threshold': 4,
-    'detect_interval': 3, # 0.3ms 
-}
-
-ms_before = 1
-ms_after = 2
-
 def sample_objects(objects, max_n=None):
     if max_n is None:
         return objects
@@ -111,6 +108,17 @@ def remove_outlier(waveforms, quantile=0.05, percentage_threshold=0.75):
     bounds = np.quantile(waveforms, [quantile, 1-quantile], axis=0)
     bool_in_range = ((((waveforms >= bounds[0:1]) & (waveforms <= bounds[1:2])).sum(1) / n_sample) > percentage_threshold)
     return waveforms[bool_in_range]
+
+def compute_isi_violation_rate(spike_train_ms):
+    bins = np.arange(0, window_ms, bin_ms)
+    isi = np.diff(spike_train_ms)
+    if (len(isi) == 0) or (isi.min() > window_ms):
+        return [], [], 0
+    else:
+        ys, bin_edges = np.histogram(isi, bins=bins, density=True)
+        xs = bin_edges[:-1]
+        rate = (isi < isi_threshold_ms).sum() / len(isi)
+        return xs, ys, rate
 
 def get_unit_session_spike_train(sorting, unit_id, session, as_indices):
     n_frames_per_ms = sorting.sampling_frequency / n_ms_per_s
@@ -155,6 +163,16 @@ def erase_3D_pane(ax):
     ax.yaxis.pane.set_edgecolor('w')
     ax.zaxis.pane.set_edgecolor('w')
 
+def collate_lateral_figures(left, right, split=(7, 2)):
+    fig = plt.figure(figsize=(20, 20), layout="constrained")
+    gs = GridSpec(1, sum(split), figure=fig)
+    ax = fig.add_subplot(gs[:, :split[0]])
+    ax.imshow(left)
+    ax.set_axis_off()
+    ax = fig.add_subplot(gs[:, split[0]:])
+    ax.imshow(right)
+    ax.set_axis_off()
+
 def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_indices, savepath, sessions=None):
     plt.rcParams.update({'font.size': 15})
     n_rows = 5
@@ -163,6 +181,8 @@ def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_i
     unit_extremum_waveforms = waveform_extractor.get_waveforms(unit_id)[:, :, extremum_channels[unit_id]]
     unit_extremum_template = waveform_extractor.get_template(unit_id)[:, extremum_channels[unit_id]]
     deoutlier_extremum_waveforms = remove_outlier(waveform_extractor.get_waveforms(unit_id)[:, :, extremum_channels[unit_id]])
+    n_frames_per_ms = sorting.sampling_frequency / n_ms_per_s
+    spike_train_ms = sorting.get_unit_spike_train(unit_id=unit_id) / n_frames_per_ms
 
     ax = plt.subplot(n_rows, n_cols, 1)
     sw.plot_unit_templates(waveform_extractor, unit_ids=[unit_id], axes=[ax], unit_colors={unit_id:'black'})
@@ -172,9 +192,13 @@ def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_i
 
     ax = plt.subplot(n_rows, n_cols, 4)
     sw.plot_autocorrelograms(sorting, window_ms=100, bin_ms=1.5, unit_ids=[unit_id], axes=[ax])
+    ax.set_xlabel('time (ms)')
 
     ax = plt.subplot(n_rows, n_cols, 5)
-    sw.plot_isi_distribution(sorting, window_ms=100, bin_ms=1.5, unit_ids=[unit_id], axes=[ax])
+    xs, ys, rate = compute_isi_violation_rate(spike_train_ms)
+    ax.bar(x=xs, height=ys, width=bin_ms, color="gray", align="edge")
+    ax.set_title(f'ISI violation rate ({isi_threshold_ms}ms): {rate*100:0.1f}%')
+    ax.set_xlabel('time (ms)')
 
     ax = plt.subplot(n_rows, n_cols, 7)
     ax.plot(sample_objects(unit_extremum_waveforms).T, label=unit_id, lw=0.5)
@@ -201,9 +225,9 @@ def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_i
 
     if sessions is not None: 
         session_spike_trains = split_unit_spike_train_indicies_by_session(sorting, unit_id, sessions)
+        unit_extremum_waveform_adata = get_session_waveforms_adata(unit_extremum_waveforms, session_spike_trains, max_count_per_session=1000)
         unit_shank_waveforms = get_unit_shank_waveforms(waveform_extractor, extremum_channels, channel_indices, unit_id)
         unit_shank_waveform_adata = get_session_waveforms_adata(unit_shank_waveforms, session_spike_trains, max_count_per_session=1000)
-        unit_extremum_waveform_adata = get_session_waveforms_adata(unit_extremum_waveforms, session_spike_trains, max_count_per_session=1000)
 
         scanpy.pp.pca(unit_shank_waveform_adata, n_comps=min(50, unit_shank_waveform_adata.shape[0]-1))
         scanpy.pp.neighbors(unit_shank_waveform_adata)
@@ -220,12 +244,14 @@ def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_i
         for session_i in range(len(sessions)):
             session_extremum_waveform_adata = unit_extremum_waveform_adata[unit_extremum_waveform_adata.obs['session_i'] == session_i]
             ax.plot(session_extremum_waveform_adata.X.mean(0) + session_i * trace_gap, color=plt.cm.turbo(session_i / len(sessions)))
+        ax.set_yticks(np.arange(0, trace_gap * len(sessions), trace_gap), sessions['date'])
+        ax.yaxis.tick_right()
 
-        plt.savefig(f'{savepath}0.png', bbox_inches='tight')
+        plt.subplots_adjust(wspace=0.4, hspace=0.4)
+        plt.savefig(f'{savepath}0.png', bbox_inches='tight') # Hack to remove 3D plot excessive margins.
         plt.close()
 
         plt.figure(figsize=(20, 20))
-        
         ax = plt.subplot(projection='3d')
         ax.set_box_aspect((1, 1, 10))
         erase_3D_pane(ax)
@@ -244,21 +270,13 @@ def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_i
         ax.set_xlabel('UMAP1')
         ax.set_ylabel('UMAP2')
         ax.tick_params(axis='z', pad=250, labelsize=15)
-        plt.savefig(f'{savepath}1.png', bbox_inches='tight')
+        plt.savefig(f'{savepath}1.png', bbox_inches='tight')  # Hack to remove 3D plot excessive margins.
         plt.close()
 
-        fig = plt.figure(figsize=(20, 20), layout="constrained")
         left = plt.imread(f'{savepath}0.png')
         right = plt.imread(f'{savepath}1.png')
         right = right[:, right.shape[1]//3+100:-right.shape[1]//4-77]
-
-        gs = GridSpec(1, 4, figure=fig)
-        ax = fig.add_subplot(gs[:, :3])
-        ax.imshow(left)
-        ax.set_axis_off()
-        ax = fig.add_subplot(gs[:, 3:])
-        ax.imshow(right)
-        ax.set_axis_off()
+        collate_lateral_figures(left, right)
         os.remove(f'{savepath}0.png')
         os.remove(f'{savepath}1.png')
 
@@ -291,18 +309,7 @@ def plot_traces(recording, channel_indices, title, savepath, trace_gap=250, shan
     plt.savefig(savepath, bbox_inches='tight')
     plt.close()
 
-def compute_isi_violation_rate(spike_train_ms, window_ms=100, bin_ms=1.5, threshold_ms=1.5):
-    bins = np.arange(0, window_ms, bin_ms)
-    isi = np.diff(spike_train_ms)
-    if (len(isi) == 0) or (isi.min() > window_ms):
-        return [], [], 0
-    else:
-        ys, bin_edges = np.histogram(isi, bins=bins, density=True)
-        xs = bin_edges[:-1]
-        rate = (isi < 1.5).sum() / len(isi)
-        return xs, ys, rate
-
-def plot_isi_by_session(sorting, unit_id, sessions, savepath=None, window_ms=150, bin_ms=1.5):
+def plot_isi_by_session(sorting, unit_id, sessions, savepath=None):
     plt.figure(figsize=(15, 15))
     ax = plt.subplot(projection='3d')
     ax.set_box_aspect((4, 20, 2))
