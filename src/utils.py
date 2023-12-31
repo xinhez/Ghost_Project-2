@@ -14,6 +14,7 @@ from probeinterface.utils import combine_probes
 memory_limit = '20G'
 n_s_per_min = 60
 n_ms_per_s = 1000
+min_recording_duration = 10
 
 blackrock_channel_indices = np.array([ 
     [ 5,  3,  1,  7,  9, 11], 
@@ -178,6 +179,7 @@ def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_i
     n_rows = 5
     n_cols = 3
     plt.figure(figsize=(20, 20))
+    plt.subplots_adjust(wspace=0.4, hspace=0.4)
     unit_extremum_waveforms = waveform_extractor.get_waveforms(unit_id)[:, :, extremum_channels[unit_id]]
     unit_extremum_template = waveform_extractor.get_template(unit_id)[:, extremum_channels[unit_id]]
     deoutlier_extremum_waveforms = remove_outlier(waveform_extractor.get_waveforms(unit_id)[:, :, extremum_channels[unit_id]])
@@ -247,7 +249,6 @@ def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_i
         ax.set_yticks(np.arange(0, trace_gap * len(sessions), trace_gap), sessions['date'])
         ax.yaxis.tick_right()
 
-        plt.subplots_adjust(wspace=0.4, hspace=0.4)
         plt.savefig(f'{savepath}0.png', bbox_inches='tight') # Hack to remove 3D plot excessive margins.
         plt.close()
 
@@ -316,7 +317,7 @@ def plot_isi_by_session(sorting, unit_id, sessions, savepath=None):
     erase_3D_pane(ax)
 
     ax.set_xlabel('time (ms)')
-    ax.set_ylabel('sessions', labelpad=180)
+    ax.set_ylabel(f'sessions ISI Violation Rate ({isi_threshold_ms}ms)', labelpad=180)
     ax.set_ylim(0, len(sessions))
     ax.set_zlabel('frequency', labelpad=20)
     ax.tick_params(axis='z', pad=10)
