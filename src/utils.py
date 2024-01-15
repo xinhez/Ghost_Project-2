@@ -195,6 +195,64 @@ def collate_lateral_figures(left, right, split=(7, 2)):
     ax.imshow(right)
     ax.set_axis_off()
 
+def plot_UMAP_by_session(sessions, unit_shank_waveform_adata, savepath):        
+    plt.figure(figsize=(20, 20))
+    ax = plt.subplot(projection='3d')
+    ax.set_box_aspect((1, 1, 10))
+    erase_3D_pane(ax)
+
+    shank_gap = -10
+    means = []
+    for session_i in range(len(sessions)):
+        session_shank_waveform_adata = unit_shank_waveform_adata[unit_shank_waveform_adata.obs['session_i'] == session_i]
+        ax.scatter3D(session_shank_waveform_adata.obsm['X_umap'][:, 0], session_shank_waveform_adata.obsm['X_umap'][:, 1], session_i * shank_gap, s=2, color=plt.cm.turbo(session_i / len(sessions)))
+        means.append([session_shank_waveform_adata.obsm['X_umap'][:, 0].mean(), session_shank_waveform_adata.obsm['X_umap'][:, 1].mean(), session_i * shank_gap])
+    means = np.array(means)
+    ax.plot3D(means[:, 0], means[:, 1], means[:, 2])
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_zticks(np.arange(len(sessions)) * shank_gap, sessions['date'])
+    ax.set_xlabel('UMAP1')
+    ax.set_ylabel('UMAP2')
+    ax.tick_params(axis='z', pad=250, labelsize=15)
+    plt.savefig(savepath, bbox_inches='tight')  # Hack to remove 3D plot excessive margins.
+    plt.close()
+
+def plot_isi_by_session(sorting, unit_id, sessions, savepath=None):
+    plt.figure(figsize=(15, 15))
+    ax = plt.subplot(projection='3d')
+    ax.set_box_aspect((4, 20, 2))
+    erase_3D_pane(ax)
+
+    ax.set_xlabel('time (ms)', labelpad=10)
+    ax.set_ylabel(f'sessions ISI Violation Rate ({isi_threshold_ms}ms)', labelpad=280)
+    ax.set_ylim(0, len(sessions))
+    ax.set_zlabel('frequency', labelpad=30)
+    ax.tick_params(axis='z', pad=10)
+    ax.set_zlim(0, 0.05)
+
+    n_frames_per_ms = sorting.sampling_frequency / n_ms_per_s
+
+    ytick_labels = []
+    for session_i in range(len(sessions)):
+        session = sessions.iloc[session_i:session_i+1]
+        date = session['date'].item()
+        spike_train_ms = get_unit_session_spike_train(sorting, unit_id, session, as_indices=False) / n_frames_per_ms
+
+        xs, ys, rate = compute_isi_violation_rate(spike_train_ms)
+        ax.bar(xs, ys, zs=session_i, zdir='y', width=bin_ms, align="edge", label=date, color=plt.cm.turbo(session_i/len(sessions)))
+        ytick_labels.append(f'{date} {rate*100:0.1f}%')
+
+    ax.set_yticks(np.arange(len(sessions))+1, ytick_labels)
+    ax.tick_params(axis='y', direction='out', pad=75, labelrotation=-15)
+
+    ax.set_title(f'ISI unit {unit_id}')
+    if savepath is not None:
+        plt.savefig(savepath, bbox_inches='tight')
+
+    plt.show()
+    plt.close()
+
 def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_indices, savepath, sessions=None):
     plt.rcParams.update({'font.size': 15})
     n_rows = 5
@@ -273,27 +331,7 @@ def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_i
         plt.savefig(f'{savepath}0.png', bbox_inches='tight') # Hack to remove 3D plot excessive margins.
         plt.close()
 
-        plt.figure(figsize=(20, 20))
-        ax = plt.subplot(projection='3d')
-        ax.set_box_aspect((1, 1, 10))
-        erase_3D_pane(ax)
-
-        shank_gap = -10
-        means = []
-        for session_i in range(len(sessions)):
-            session_shank_waveform_adata = unit_shank_waveform_adata[unit_shank_waveform_adata.obs['session_i'] == session_i]
-            ax.scatter3D(session_shank_waveform_adata.obsm['X_umap'][:, 0], session_shank_waveform_adata.obsm['X_umap'][:, 1], session_i * shank_gap, s=2, color=plt.cm.turbo(session_i / len(sessions)))
-            means.append([session_shank_waveform_adata.obsm['X_umap'][:, 0].mean(), session_shank_waveform_adata.obsm['X_umap'][:, 1].mean(), session_i * shank_gap])
-        means = np.array(means)
-        ax.plot3D(means[:, 0], means[:, 1], means[:, 2])
-        ax.set_xticks([])
-        ax.set_yticks([])
-        ax.set_zticks(np.arange(len(sessions)) * shank_gap, sessions['date'])
-        ax.set_xlabel('UMAP1')
-        ax.set_ylabel('UMAP2')
-        ax.tick_params(axis='z', pad=250, labelsize=15)
-        plt.savefig(f'{savepath}1.png', bbox_inches='tight')  # Hack to remove 3D plot excessive margins.
-        plt.close()
+        plot_UMAP_by_session(sessions, unit_shank_waveform_adata, savepath=f'{savepath}1.png')
 
         left = plt.imread(f'{savepath}0.png')
         right = plt.imread(f'{savepath}1.png')
@@ -301,6 +339,18 @@ def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_i
         collate_lateral_figures(left, right)
         os.remove(f'{savepath}0.png')
         os.remove(f'{savepath}1.png')
+
+        try:
+            plot_isi_by_session(sorting, unit_id, sessions, savepath=f'{savepath}3.png')
+             
+            plt.savefig(f'{savepath}2.png', bbox_inches='tight')
+            left = plt.imread(f'{savepath}2.png')
+            right = plt.imread(f'{savepath}3.png')
+            collate_lateral_figures(left, right, split=(8, 5))
+            os.remove(f'{savepath}2.png')
+            os.remove(f'{savepath}3.png')
+        except Exception as e:
+            print(f'  Failed to save ISI\n{e}')            
 
     plt.savefig(savepath, bbox_inches='tight')
     plt.close()
@@ -329,43 +379,4 @@ def plot_traces(recording, channel_indices, title, savepath, trace_gap=250, shan
     plt.xlabel('min')
     plt.ylabel(r'200 $\mu$V gap between traces')
     plt.savefig(savepath, bbox_inches='tight')
-    plt.close()
-
-def plot_isi_by_session(sorting, unit_id, sessions, savepath=None):
-    plt.figure(figsize=(15, 15))
-    ax = plt.subplot(projection='3d')
-    ax.set_box_aspect((4, 20, 2))
-    erase_3D_pane(ax)
-
-    ax.set_xlabel('time (ms)')
-    ax.set_ylabel(f'sessions ISI Violation Rate ({isi_threshold_ms}ms)', labelpad=180)
-    ax.set_ylim(0, len(sessions))
-    ax.set_zlabel('frequency', labelpad=20)
-    ax.tick_params(axis='z', pad=10)
-    ax.set_zlim(0, 0.05)
-
-    n_frames_per_ms = sorting.sampling_frequency / n_ms_per_s
-
-    ytick_labels = []
-    for session_i in range(len(sessions)):
-        session = sessions.iloc[session_i:session_i+1]
-        date = session['date'].item()
-        spike_train_ms = get_unit_session_spike_train(sorting, unit_id, session, as_indices=False) / n_frames_per_ms
-
-        xs, ys, rate = compute_isi_violation_rate(spike_train_ms)
-        ax.bar(xs, ys, zs=session_i, zdir='y', width=bin_ms, align="edge", label=date, color=plt.cm.turbo(session_i/len(sessions)))
-        ytick_labels.append(f'{date} {rate*100:0.1f}%')
-
-    ax.set_yticks(np.arange(len(sessions))+1, ytick_labels)
-    ax.tick_params(axis='y', direction='out', pad=50, labelrotation=-15)
-
-    ax.set_title(f'ISI unit {unit_id}')
-    if savepath is not None:
-        try:
-            plt.savefig(savepath, bbox_inches='tight')
-        except Exception as e:
-            print(f'Failed to savefig {savepath}\n{e}')
-            return
-
-    plt.show()
     plt.close()
