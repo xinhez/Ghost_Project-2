@@ -16,6 +16,27 @@ n_s_per_min = 60
 n_ms_per_s = 1000
 min_recording_duration = 10
 
+surgery_dates = {
+    '1_2': '20230720',
+    '1_4': '20230704',
+    '1_5': '20230627',
+    '1_6': '20230630',
+    '4_4': '20230804',
+    '4_6': '20230804',
+    '5_4': '20230807',
+    '5_6': '20230807',
+    '5_7': '20230805',
+    '6_2': '20231019',
+    '6_3': '20231016',
+    '6_6': '20231016',
+    '6_7': '20231016',
+    '7_2': '20231019',
+    '7_3': '20231027',
+    '8_1': '20231126',
+    '8_5': '20231126',
+    '8_6': '20231126',
+}
+
 blackrock_channel_indices = np.array([ 
     [ 5,  3,  1,  7,  9, 11], 
     [17, 15, 13, 19, 21, 23], 
@@ -49,7 +70,7 @@ window_ms, bin_ms = 100, 1.5
 isi_threshold_ms = 1.5
 
 def get_channels_from_the_same_shank(channel, channel_indices=blackrock_channel_indices):
-    for shank in blackrock_channel_indices:
+    for shank in channel_indices:
         if channel in shank:
             return shank 
     raise Exception(f'channel {channel} does not exist')
@@ -340,6 +361,11 @@ def plot_isi_by_session(sorting, unit_id, sessions, savepath=None):
 
     ax.set_title(f'ISI unit {unit_id}')
     if savepath is not None:
-        plt.savefig(savepath, bbox_inches='tight')
+        try:
+            plt.savefig(savepath, bbox_inches='tight')
+        except Exception as e:
+            print(f'Failed to savefig {savepath}\n{e}')
+            return
+
     plt.show()
     plt.close()
