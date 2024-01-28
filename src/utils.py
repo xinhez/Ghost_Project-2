@@ -293,7 +293,7 @@ def plot_isi_by_session(unit_id, sorting, sessions, plotted_session_indices, ini
         ytick_labels.append(f'[{session_i}] {session_date} {rate*100:0.1f}% ({session_lapse} mo)')
 
     ax.set_yticks(np.arange(len(plotted_session_indices))+1, ytick_labels)
-    ax.tick_params(axis='y', direction='out', pad=100)
+    ax.tick_params(axis='y', direction='out', pad=120)
     for plot_index, ticklabel in enumerate(ax.get_yticklabels()):
         ticklabel.set_color(colormap(plotted_session_indices[plot_index]/len(sessions)))
 
@@ -375,7 +375,7 @@ def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_i
         plt.savefig(f'{savepath}0.png', bbox_inches='tight') # Hack to remove 3D plot excessive margins.
         plt.close()
 
-        plot_UMAP_by_session(sessions, unit_shank_waveform_by_session_adata, savepath=f'{savepath}1.png')
+        plot_UMAP_by_session(sessions, unit_shank_waveform_by_session_adata, sessions.index, initdate, savepath=f'{savepath}1.png')
 
         left = plt.imread(f'{savepath}0.png')
         right = plt.imread(f'{savepath}1.png')
@@ -402,9 +402,7 @@ def plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_i
     plt.close()
 
 
-def plot_traces(recording, channel_indices, title, savepath, trace_gap=250, shank_gap=500, fontsize=25):
-    traces = recording.get_traces().T 
-    sampling_frequency = int(recording.sampling_frequency)
+def plot_traces(traces, sampling_frequency, channel_indices, title, savepath, trace_gap=250, shank_gap=500, fontsize=25):
     n_shank, n_channel_per_shank = channel_indices.shape
     n_channel = channel_indices.size
     plt.rcParams.update({'font.size': fontsize})
