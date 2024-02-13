@@ -35,10 +35,10 @@ def get_channels_from_the_same_shank(channel, channel_indices=blackrock_channel_
     raise Exception(f'channel {channel} does not exist')
 
 def create_probe(channel_indices, savepath=None):
+    plt.rcParams.update({'font.size': 10})
     n_shank = len(channel_indices)
     n_channel = channel_indices.size
-    shank_locations = np.array([[0, 0], [150, 200], [300, 400], [450, 200], [600, 0]])
-
+    
     plt.figure(figsize=(20, 10))
     ax = plt.gca()
 
@@ -68,9 +68,9 @@ def create_probe(channel_indices, savepath=None):
     return multi_shank_probe
 
 def create_probegroup(channel_indices, savepath=None):
+    plt.rcParams.update({'font.size': 10})
     n_shank = len(channel_indices)
     n_channel = channel_indices.size
-    shank_locations = np.array([[0, 0], [150, 200], [300, 400], [450, 200], [600, 0]])
 
     plt.figure(figsize=(20, 10))
     ax = plt.gca()
