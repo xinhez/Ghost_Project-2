@@ -7,6 +7,7 @@ import glob
 import matplotlib.pyplot as plt
 import numpy as np 
 import os
+import pandas as pd
 import spikeinterface.core as sc
 import spikeinterface.extractors as se
 import spikeinterface.curation as scu
@@ -99,7 +100,8 @@ def get_args():
 
 def read_recordings(paths, min_duration, n_channel):
     traces = []
-    files = []
+    session_info = []
+    session_start = 0
     for path in paths:
         nsxfile = NsxFile(path)
         raw_data = nsxfile.getdata()
@@ -110,19 +112,17 @@ def read_recordings(paths, min_duration, n_channel):
         if duration < min_duration:
             continue 
         traces.append(trace)
-        files.append({
+        session_info.append({
             'path': path,
             'sampling_frequency': sampling_frequency,
             'duration': duration,
+            'session_start': session_start,
+            'session_length': trace.shape[1],
         })
+        session_start += trace.shape[1]
     traces = np.hstack(traces)
-    return traces, files
-
-
-def check_and_get_sampling_frequency(files):
-    sampling_frequencies = [file['sampling_frequency'] for file in files]
-    assert len(set(sampling_frequencies)) == 1 
-    return sampling_frequencies[0]
+    session_info = pd.json_normalize(session_info)
+    return traces, session_info
 
 
 def create_probe(channel_indices, shank_locations, savepath=None):
@@ -169,12 +169,13 @@ if __name__ == '__main__':
     recording_folder = f'{folder_root}/recording'
     if not os.path.isfile(f'{recording_folder}/binary.json'):
         recording_paths = sorted(glob.glob(f'{args.data}/{args.subject}/**/*.{args.nsx}'))
-        traces, files = read_recordings(recording_paths, args.min_duration, channel_indices.size)   
-        sampling_frequency = check_and_get_sampling_frequency(files)
+        traces, session_info = read_recordings(recording_paths, args.min_duration, channel_indices.size)   
+        sampling_frequency = session_info['sampling_frequency'].unique().item()
         recording = se.NumpyRecording(traces_list=traces.T, sampling_frequency=sampling_frequency)
         recording = spre.bandpass_filter(recording, freq_min=300, freq_max=3000)
         recording = spre.common_reference(recording, reference='global', operator='median')
         recording.save(folder=recording_folder)
+        session_info.to_csv(f'{recording_folder}/session_info.csv', index=False)
     recording = sc.load_extractor(recording_folder)
     probe = create_probe(channel_indices, shank_locations, f'{recording_folder}/probe.png')
     recording.set_probe(probe, in_place=True)
