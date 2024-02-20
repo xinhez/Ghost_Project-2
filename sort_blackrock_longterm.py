@@ -232,8 +232,8 @@ def plot_waveforms(ax, unit_id, waveform_extractor, extremum_channel, waveforms,
 
 def plot_UMAP(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, lapse):
     if len(adata) > 0:
-        ax.scatter(adata.obsm['X_umap'][:, 0], adata.obsm['X_umap'][:, 1], color=plt.cm.turbo(lapse / total_month), s=20)
-        ax.set_title(f'{lapse} months')
+        ax.scatter(adata.obsm['X_umap'][:, 0], adata.obsm['X_umap'][:, 1], color=plt.cm.turbo(lapse / total_month), s=100)
+        ax.set_title(f'{lapse} months', fontsize=50)
 
 def get_shank(channel_id):
     for shank, shank_channels in enumerate(channel_indices):

@@ -7,5 +7,6 @@ do
     python sort_blackrock_longterm.py \
         --subject "$subject" \
         --data data/raw/LongTerm \
-        --folder data/processed/LongTerm
+        --folder data/processed/LongTerm \
+        --nsx ns4
 done
