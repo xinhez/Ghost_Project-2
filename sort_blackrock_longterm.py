@@ -32,11 +32,10 @@ from src.brpylib import NsxFile
 
 
 # Constants 
-n_frames_per_ms = None
 n_ms_per_s = 1000
 n_s_per_min = 60
-n_day_per_month= 30
-total_month = 6
+n_day_per_week= 7
+total_week = 24
 window_ms = 150
 bin_ms = 2.5
 channel_indices = np.array([ 
@@ -56,7 +55,7 @@ sorter_parameters = {
         'filter': True,
         'whiten': True,  
         'clip_size': 50,
-        'detect_threshold': 5,
+        'detect_threshold': 4,
         'detect_interval': 3, # 0.3ms 
     },
     'mountainsort5': {
@@ -193,7 +192,7 @@ def create_probe(channel_indices, shank_locations, savepath=None):
     return multi_shank_probe
 
 def plot_autocorrelogram(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, lapse):
-    sw.plot_autocorrelograms(waveform_extractor.sorting, window_ms=window_ms, bin_ms=bin_ms, unit_ids=[unit_id], axes=[ax], unit_colors={unit_id:plt.cm.turbo(lapse / total_month)})
+    sw.plot_autocorrelograms(waveform_extractor.sorting, window_ms=window_ms, bin_ms=bin_ms, unit_ids=[unit_id], axes=[ax], unit_colors={unit_id:plt.cm.turbo(lapse / total_week)})
 
 def plot_location(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, lapse):
     sw.plot_unit_locations(waveform_extractor, unit_ids=[unit_id], ax=ax)
@@ -202,7 +201,7 @@ def plot_probe_map(ax, unit_id, waveform_extractor, extremum_channel, waveforms,
     sw.plot_unit_probe_map(waveform_extractor, unit_ids=[unit_id], axes=[ax])
 
 def plot_template_map(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, lapse):
-    sw.plot_unit_templates(waveform_extractor, unit_ids=[unit_id], axes=[ax], unit_colors={unit_id:plt.cm.turbo(lapse / total_month)})
+    sw.plot_unit_templates(waveform_extractor, unit_ids=[unit_id], axes=[ax], unit_colors={unit_id:plt.cm.turbo(lapse / total_week)})
 
 def compute_isi_violation_rate(spike_train_ms, window_ms, bin_ms, isi_threshold_ms):
     bins = np.arange(0, window_ms, bin_ms)
@@ -216,24 +215,25 @@ def compute_isi_violation_rate(spike_train_ms, window_ms, bin_ms, isi_threshold_
         return xs, ys, rate
     
 def plot_ISI(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, lapse, isi_threshold_ms=1.5):
+    n_frames_per_ms = int(waveform_extractor.sorting.sampling_frequency / n_ms_per_s)
     spike_train_ms = waveform_extractor.sorting.get_unit_spike_train(unit_id=unit_id) / n_frames_per_ms
     xs, ys, rate = compute_isi_violation_rate(spike_train_ms, window_ms, bin_ms, isi_threshold_ms)
-    ax.bar(x=xs, height=ys, width=bin_ms, color=plt.cm.turbo(lapse / total_month), align="edge")
+    ax.bar(x=xs, height=ys, width=bin_ms, color=plt.cm.turbo(lapse / total_week), align="edge")
     ax.set_title(f'ISI violation rate ({isi_threshold_ms}ms): {rate*100:0.1f}%')
     ax.set_xlabel('time (ms)')
 
 def plot_template(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, lapse):
-    ax.plot(templates, label=unit_id, color=plt.cm.turbo(lapse / total_month))
+    ax.plot(templates, label=unit_id, color=plt.cm.turbo(lapse / total_week))
     ax.set_title(f'{unit_id} template at ch {extremum_channel}')
 
 def plot_waveforms(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, lapse):
-    ax.plot(waveforms.T, label=unit_id, lw=0.5, color=plt.cm.turbo(lapse / total_month))
+    ax.plot(waveforms.T, label=unit_id, lw=0.5, color=plt.cm.turbo(lapse / total_week))
     ax.set_title(f'{unit_id} waveforms at ch {extremum_channel}')
 
 def plot_UMAP(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, lapse):
     if len(adata) > 0:
-        ax.scatter(adata.obsm['X_umap'][:, 0], adata.obsm['X_umap'][:, 1], color=plt.cm.turbo(lapse / total_month), s=100)
-        ax.set_title(f'{lapse} months', fontsize=50)
+        ax.scatter(adata.obsm['X_umap'][:, 0], adata.obsm['X_umap'][:, 1], color=plt.cm.turbo(lapse / total_week), s=100)
+        ax.set_title(f'{lapse:0.2f} weeks')
 
 def get_shank(channel_id):
     for shank, shank_channels in enumerate(channel_indices):
@@ -291,13 +291,16 @@ def plot_unit(
         segment_adata = adata[adata.obs['segment'] == segment]
         if len(segment_adata) == 0:
             continue
-        lapse = round(((segment_date - init_date).days) / n_day_per_month)
+        lapse = ((segment_date - init_date).days) / n_day_per_week
         for plot_i, plot_type in enumerate(plot_types):
             ax = plt.subplot(len(session_info), len(plot_types), plot_i + segment * len(plot_types)+1)
             plot_fns[plot_type](ax, unit_id, waveform_extractors[segment], extremum_channels[segment], waveforms[segment], templates[segment], segment_adata, lapse)
             if plot_type == 'UMAP':
                 ax.set_xlim(adata.obsm['X_umap'][:, 0].min(), adata.obsm['X_umap'][:, 0].max())
                 ax.set_ylim(adata.obsm['X_umap'][:, 1].min(), adata.obsm['X_umap'][:, 1].max())
+                ax.set_title(f'[{segment}]' + ax.get_title(), fontsize=50)
+            if plot_type == 'autocorrelogram':
+                ax.set_title(f'unit (' + ax.get_title() + f') {round(lapse)} wk', fontsize=50)
     plt.tight_layout()
     plt.savefig(savepath)
     plt.close()
@@ -318,13 +321,11 @@ def main(args):
         recording_paths = session_info['path'].tolist()
         recordings, _ = read_recordings(recording_paths, args.min_duration, channel_indices.size)   
 
-    probe = create_probe(channel_indices, shank_locations, f'{recording_folder}/probe.png')
+    probe = create_probe(channel_indices, shank_locations, f'{folder_root}/probe.png')
     recording = sc.load_extractor(recording_folder).set_probe(probe, in_place=True)
-    global n_frames_per_ms
-    n_frames_per_ms = recording.sampling_frequency / n_ms_per_s
     print('\t...Preprocessed...')
 
-    sorting_folder = f'{folder_root}/sorting'
+    sorting_folder = f'{folder_root}/sorting{sorter_parameters[args.sorter]["detect_threshold"]}'
     if not os.path.isfile(f'{sorting_folder}{os.sep}sorter_output{os.sep}firings.npz'):
         ss.run_sorter(
             sorter_name=args.sorter,
@@ -342,7 +343,7 @@ def main(args):
     sortings = [sc.select_segment_sorting(sorting, segment_indices=segment) for segment in range(len(session_info))]
     print('\t...Sorted...')
 
-    waveform_folder = f'{folder_root}/waveform'
+    waveform_folder = f'{folder_root}/waveform{sorter_parameters[args.sorter]["detect_threshold"]}'
     for segment in range(len(session_info)):
         segment_waveform_folder = f'{waveform_folder}/{segment}'
         if not os.path.isfile(f'{segment_waveform_folder}{os.sep}templates_average.npy'):
@@ -371,7 +372,7 @@ def main(args):
     print('\t...Waveform extracted...')
 
     init_date = datetime.datetime.strptime(surgery_dates[args.subject], '%Y%m%d')
-    units_folder = f'{folder_root}/units'
+    units_folder = f'{folder_root}/units{sorter_parameters[args.sorter]["detect_threshold"]}'
     os.makedirs(units_folder, exist_ok=True)
     for unit_id in tqdm(sorting.unit_ids):
         unit_plot_file = f'{units_folder}/{unit_id}.png'
