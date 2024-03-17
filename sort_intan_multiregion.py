@@ -65,7 +65,7 @@ def create_probe(channel_indices, shank_locations, n_rows, n_cols, inter_electro
     plt.title(f'Probe - {n_channel}ch - {n_shank}shanks')
     if savepath is not None:
         plt.savefig(savepath, bbox_inches='tight')
-    plt.show()
+    # plt.show()
     plt.close()
     return multi_shank_probe
 
@@ -115,6 +115,31 @@ def get_args():
     args = parser.parse_args()
     return args
 
+
+def plot_traces(traces, sampling_frequency, channel_indices, title, savepath, session_w=10, trace_gap=250, shank_gap=500, fontsize=25):
+    n_shank, n_channel_per_shank = channel_indices.shape
+    n_channel = channel_indices.size
+    plt.rcParams.update({'font.size': fontsize})
+    duration = traces.shape[1] / sampling_frequency / n_s_per_min
+    plt.figure(figsize=(session_w * duration, 50))
+    plt.title(f'{title} : {duration:0.2f} min')
+
+    for shank_i, shank in enumerate(channel_indices):
+        for channel_i, channel in enumerate(shank):
+            y_baseline = trace_gap * (channel_i + shank_i * n_channel_per_shank) + shank_gap * shank_i
+            
+            plt.plot(traces[channel]+y_baseline)
+            plt.text(len(traces[channel]), y_baseline - fontsize, f'ch{channel}')
+
+    xticks_labels = list(range(round(duration) + 1))
+    xticks_locs = [min * sampling_frequency * n_s_per_min for min in xticks_labels]
+    plt.ylim(-trace_gap, n_channel * trace_gap + (n_shank - 1) * shank_gap)
+    plt.xticks(ticks=xticks_locs, labels=xticks_labels)
+    plt.xlabel('min')
+    plt.ylabel(rf'{trace_gap} $\mu$V gap between traces')
+    plt.savefig(savepath, bbox_inches='tight')
+    plt.close()
+    
 def main(args):
     os.makedirs('sorter_tmp', exist_ok=True)
     input_root = f'data{os.sep}raw{os.sep}MultiRegion'
@@ -163,6 +188,8 @@ def main(args):
                     'session': session,
                 })
                 session_length += raw_data['amplifier_data'].shape[1] 
+        session_info = pd.json_normalize(session_info)
+        session_info.to_csv(f'{session_output_folder}{os.sep}session_info.csv', index=False)
             
         for region, region_traces in traces.items():
             region_output_folder = f'{session_output_folder}{os.sep}{region}'
@@ -185,10 +212,20 @@ def main(args):
                 recording_processed = spre.common_reference(recording_processed, reference='global', operator='median')
                 recording_processed.save(folder=f'{region_output_folder}{os.sep}processed')
 
-                if not os.path.isfile(f'{region_output_folder}{os.sep}processed{os.sep}traces.png'):
-                    plot_traces(recording_processed.get_traces().T, recording_processed.sampling_frequency, channel_indices, title=f'{args.subject} -> {session}', savepath=f'{region_output_folder}{os.sep}processed{os.sep}traces.png', trace_gap=150)
-
             recording_processed = sc.load_extractor(f'{region_output_folder}{os.sep}processed')
+
+            if not os.path.isfile(f'{region_output_folder}{os.sep}traces.png'):
+                plot_traces(recording_processed.get_traces().T, recording_processed.sampling_frequency, channel_indices, title=f'{args.subject} -> {session}', savepath=f'{region_output_folder}{os.sep}traces.png', trace_gap=150)
+                
+            traces_folder = f'{region_output_folder}{os.sep}session_traces'
+            os.makedirs(traces_folder, exist_ok=True)
+            for session_i in tqdm(range(len(session_info))):
+                session_file = session_info.loc[session_i, 'file'].split(os.sep)[-1].replace('rhd', 'png')
+                session_trace_file = f'{traces_folder}{os.sep}{session_file}'
+                if not os.path.isfile(session_trace_file):
+                    session_start = session_info.loc[session_i, 'file_start']
+                    session_end = session_start + session_info.loc[session_i, 'file_length']
+                    plot_traces(recording_processed.get_traces(start_frame=session_start, end_frame=session_end).T, recording_processed.sampling_frequency, channel_indices, title=f'{args.subject} -> {session}', savepath=session_trace_file, trace_gap=150, session_w=50)
             
             sorting_folder = f'{region_output_folder}{os.sep}sorting{args.threshold}'
             if not os.path.isfile(f'{sorting_folder}{os.sep}sorter_output{os.sep}firings.npz'):
@@ -224,8 +261,6 @@ def main(args):
                 if not os.path.isfile(unit_plot_file):
                     plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_indices, initdate='20240101', savepath=unit_plot_file)
 
-        session_info = pd.json_normalize(session_info)
-        session_info.to_csv(f'{session_output_folder}{os.sep}session_info.csv', index=False)
 
 if __name__ == '__main__':
     args = get_args()
