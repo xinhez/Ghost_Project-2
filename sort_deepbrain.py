@@ -9,11 +9,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os 
 import pandas as pd
+import re
 import scanpy
+import shutil
 import spikeinterface.core as sc 
 import spikeinterface.curation as scu
 import spikeinterface.extractors as se 
 import spikeinterface.preprocessing as spre
+import spikeinterface.postprocessing as spost
 import spikeinterface.sorters as ss
 import spikeinterface.widgets as sw
 import sys 
@@ -47,10 +50,12 @@ shank_locations = np.array([
     (115 * 1, 125 * 1), 
     (115 * 2, 125 * 2), 
     (115 * 3, 125 * 3), 
-    (115 * 3 + 150, 125 * 3), 
-    (115 * 4 + 150, 125 * 2), 
-    (115 * 5 + 150, 125 * 1),  
-    (115 * 6 + 150, 125 * 0),
+    (115 * 4, 125 * 4), 
+    (115 * 4 + 150, 125 * 4), 
+    (115 * 5 + 150, 125 * 3), 
+    (115 * 6 + 150, 125 * 2), 
+    (115 * 7 + 150, 125 * 1),  
+    (115 * 8 + 150, 125 * 0),
 ])
 window_ms, bin_ms = 100, 1.5
 ms_before, ms_after = 2, 2
@@ -134,8 +139,8 @@ def create_probe(channel_indices, shank_locations, n_rows, n_cols, inter_electro
     multi_shank_probe = combine_probes(probes)
     multi_shank_probe.set_device_channel_indices(channel_indices.flatten())
 
-    plt.xlim(-100, 1000)
-    plt.ylim(-150, 600)
+    plt.xlim(-100, 1300)
+    plt.ylim(-150, 700)
     plt.title(f'Probe - {n_channel}ch - {n_shank}shanks')
     if savepath is not None:
         plt.savefig(savepath, bbox_inches='tight')
@@ -215,7 +220,7 @@ def plot_template(ax, unit_id, waveform_extractor, extremum_channel, waveforms, 
 
 def plot_waveforms(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment):
     ax.plot(waveforms.T, label=unit_id, lw=0.5, color=plt.cm.tab10(segment))
-    ax.set_title(f'{unit_id} waveforms at ch {extremum_channel}')
+    ax.set_title(f'{unit_id} {len(waveforms) / waveform_extractor.get_total_duration():0.2f}Hz')
 
 def plot_UMAP(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment):
     if len(adata) > 0:
@@ -239,6 +244,7 @@ def plot_unit(unit_id, session_info, waveform_extractors, savepath,
               plot_types=['autocorrelogram', 'location', 'probe_map', 'template_map', 'template_extremum', 'template', 'waveforms', 'ISI', 'UMAP'],
               subplot_size=5, min_spikes=10
               ):
+    plt.rcParams.update({'font.size': 20})
 
     plot_fns = {
         'autocorrelogram': plot_autocorrelogram, 
@@ -266,7 +272,8 @@ def plot_unit(unit_id, session_info, waveform_extractors, savepath,
         waveforms.append(segment_waveforms.transpose(0, 2, 1).reshape(segment_waveforms.shape[0], segment_waveforms.shape[1]*segment_waveforms.shape[2]))
         templates.append(segment_templates.T.flatten())
 
-        dates.append(datetime.datetime.strptime(segment_path.split('/')[-1].split('_')[-2], '%y%m%d'))
+        match = re.search(r'(\d{2})(\d{2})(\d{2})', segment_path)
+        dates.append(datetime.datetime.strptime(match.group(0), '%Y%m%d'))
 
     adata = ad.AnnData(np.vstack(waveforms))
     adata.obs['segment'] = np.hstack([[segment] * len(segment_waveforms) for segment, segment_waveforms in enumerate(waveforms)])
@@ -287,23 +294,53 @@ def plot_unit(unit_id, session_info, waveform_extractors, savepath,
             if plot_type == 'UMAP':
                 ax.set_xlim(adata.obsm['X_umap'][:, 0].min(), adata.obsm['X_umap'][:, 0].max())
                 ax.set_ylim(adata.obsm['X_umap'][:, 1].min(), adata.obsm['X_umap'][:, 1].max())
-                ax.set_title(f'[{segment}]' + ax.get_title(), fontsize=50)
+                ax.set_title(f'[{segment}]' + ax.get_title(), fontsize=25)
             if plot_type == 'autocorrelogram':
-                ax.set_title(f'unit (' + ax.get_title() + f') {segment_path.split("/")[-1]}', fontsize=50)
+                ax.set_title(f'unit (' + ax.get_title() + f') {segment_path.split("/")[-1]}', fontsize=25)
     plt.tight_layout()
     plt.savefig(savepath)
     plt.close()
 
+def plot_traces(traces, sampling_frequency, channel_indices, title, savepath, session_w=10, trace_gap=250, shank_gap=500, fontsize=25):
+    n_shank, n_channel_per_shank = channel_indices.shape
+    n_channel = channel_indices.size
+    plt.rcParams.update({'font.size': fontsize})
+    duration = traces.shape[1] / sampling_frequency / n_s_per_min
+    plt.figure(figsize=(session_w * duration, 50))
+    plt.title(f'{title} : {duration:0.2f} min')
+
+    for shank_i, shank in enumerate(channel_indices):
+        for channel_i, channel in enumerate(shank):
+            y_baseline = trace_gap * (channel_i + shank_i * n_channel_per_shank) + shank_gap * shank_i
+            
+            plt.plot(traces[channel]+y_baseline)
+            plt.text(len(traces[channel]), y_baseline - fontsize, f'ch{channel}')
+
+    xticks_labels = list(range(round(duration) + 1))
+    xticks_locs = [min * sampling_frequency * n_s_per_min for min in xticks_labels]
+    plt.ylim(-trace_gap, n_channel * trace_gap + (n_shank - 1) * shank_gap)
+    plt.xticks(ticks=xticks_locs, labels=xticks_labels)
+    plt.xlabel('min')
+    plt.ylabel(rf'{trace_gap} $\mu$V gap between traces')
+    plt.savefig(savepath, bbox_inches='tight')
+    plt.close()
+
 def main(args):
     folder_root = f'data/processed/{args.subject}/{args.sortdate}'
+    os.makedirs(folder_root, exist_ok=True)
     sorter_parameters['detect_threshold'] = args.threshold
 
     recordings = []
     segment_start = 0
     session_info = []
-    for segment_path in sorted(glob.glob(f'data/raw/{args.sortdate}*/{args.subject}*/')):
+    traces_folder = f'{folder_root}/traces'
+    os.makedirs(traces_folder, exist_ok=True)
+    for segment_path in (pbar := tqdm(sorted(glob.glob(f'data/raw/{args.sortdate}*/{args.subject}*')))):
+        segment_name = segment_path.split('/')[-1]
+        pbar.set_description(segment_name)
         recording_paths = sorted(glob.glob(f'{segment_path}/*.rhd'))
         recording, duration, segment_files = read_recording(recording_paths)
+        print('*'*8, duration, duration >= args.min_duration)
         if duration >= args.min_duration:
             recordings.append(recording)
             segment_duration = segment_files['file_duration'].sum()
@@ -312,6 +349,11 @@ def main(args):
             segment_files['segment_duration'] = segment_duration
             session_info.append(segment_files)
             segment_start += segment_duration
+
+            trace_plot_file = f'{traces_folder}/{segment_name}.png'
+            if not os.path.isfile(trace_plot_file):
+                plot_traces(recording.get_traces().T, recording.sampling_frequency, channel_indices, segment_name, trace_plot_file)
+
     session_info = pd.concat(session_info, ignore_index=True)
     session_info.to_csv(f'{folder_root}/session_info.csv', index=False)
 
@@ -321,7 +363,7 @@ def main(args):
         recording.save(folder=recording_folder)
     recording = sc.load_extractor(recording_folder)
 
-    probe = create_probe(channel_indices, shank_locations, n_rows=4, n_cols=2, inter_electrode_distance=35, electrode_radius=12.5, savepath=f'{recording_folder}/probe.png')
+    probe = create_probe(channel_indices, shank_locations, n_rows=4, n_cols=2, inter_electrode_distance=35, electrode_radius=12.5, savepath=f'{folder_root}/probe.png')
     recording.set_probe(probe, in_place=True)
     print('*'*20, f'Preprocessing at {recording_folder}')
 
@@ -339,12 +381,12 @@ def main(args):
     sorting = se.NpzSortingExtractor(f'{sorting_folder}/sorter_output/firings.npz')
     # spikeinterface https://github.com/SpikeInterface/spikeinterface/pull/1378
     sorting = scu.remove_excess_spikes(sorting, recording)
-    sorting = sc.split_sorting(sorting, recordings)
-    sortings = [sc.select_segment_sorting(sorting, segment_indices=segment) for segment in range(len(recordings))]
+    sortings = sc.split_sorting(sorting, recordings)
+    sortings = [sc.select_segment_sorting(sortings, segment_indices=segment) for segment in range(len(recordings))]
     print('*'*20, f'Sorting at {sorting_folder}')
 
-    waveform_folder = f'{region_folder}/waveform{args.threshold}'
-    for segment in range(len(recording)):
+    waveform_folder = f'{folder_root}/waveform{args.threshold}'
+    for segment in range(len(recordings)):
         segment_waveform_folder = f'{waveform_folder}/{segment}'
         if not os.path.isfile(f'{segment_waveform_folder}/templates_average.npy'):
             recordings[segment].set_probe(probe, in_place=True).save(folder='tmp-recording')
@@ -380,6 +422,19 @@ def main(args):
         if not os.path.isfile(unit_plot_file):
             plot_unit(unit_id, session_info, waveform_extractors, savepath=unit_plot_file)
 
+    raster_plot_file = f'{folder_root}/raster{args.threshold}.png'
+
+    if not os.path.isfile(raster_plot_file):
+        plt.rcParams.update({'font.size': 10})
+        plt.figure(figsize=(10 * recording.get_total_duration() / n_s_per_min, len(sorting.unit_ids)/8))
+        ax = plt.gca()
+        sw.plot_rasters(sorting, time_range=[0, recording.get_num_frames()], ax=ax)
+        segments = session_info[['segment_path', 'segment_start']].drop_duplicates()
+        for i in range(len(segments)):
+            plt.text(segments.iloc[i]['segment_start'] / recording.sampling_frequency, -3, segments.iloc[i]['segment_path'].split('/')[-1], fontsize=25)  
+        plt.tight_layout()
+        plt.savefig(raster_plot_file)
+        plt.close()
 if __name__ == '__main__':
     args = get_args()
     main(args)
