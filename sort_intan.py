@@ -1,3 +1,7 @@
+import matplotlib 
+matplotlib.use('Agg')
+matplotlib.rcParams['agg.path.chunksize'] = 10000
+
 import argparse
 import glob
 import sys
@@ -51,12 +55,15 @@ def main(args):
     print(f'Saveing to {output_root}')
     print(f'Sorting {args.subject} with {len(segment_paths)} segment(s):')
     for segment_index, segment_path in enumerate(segment_paths):
-        print(f'    [{segment_index:3d}] {segment_path}')
+        print(f'    [{segment_index+1:3d}] {segment_path}')
     
     sorter_parameters['detect_threshold'] = args.threshold
 
-    if probe_designs[args.subject] == 'multiregion_80pin':
+    if 'multiregion' in probe_designs[args.subject]:
         from sort_intan_multiregion import sort 
+        sort(args, output_root, segment_paths, sorter_parameters)
+    elif 'singleregion' in  probe_designs[args.subject]:
+        from sort_intan_singleregion import sort 
         sort(args, output_root, segment_paths, sorter_parameters)
     else:
         raise Exception("Not implemented!!!")

@@ -138,7 +138,7 @@ def plot_unit(unit_id, session_info, init_date, waveform_extractors, channel_ind
     plt.savefig(savepath)
     plt.close()
 
-def plot_traces(traces, sampling_frequency, channel_indices, title, savepath, session_w=10, trace_gap=250, shank_gap=500, fontsize=25):
+def plot_traces(traces, sampling_frequency, channel_indices, title, savepath, session_w=10, trace_gap=75, shank_gap=200, fontsize=25):
     n_shank, n_channel_per_shank = channel_indices.shape
     n_channel = channel_indices.size
     plt.rcParams.update({'font.size': fontsize})
@@ -150,8 +150,8 @@ def plot_traces(traces, sampling_frequency, channel_indices, title, savepath, se
         for channel_i, channel in enumerate(shank):
             y_baseline = trace_gap * (channel_i + shank_i * n_channel_per_shank) + shank_gap * shank_i
             
-            plt.plot(traces[channel]+y_baseline)
-            plt.text(len(traces[channel]), y_baseline - fontsize, f'ch{channel}')
+            plt.plot(traces[channel - channel_indices.min()]+y_baseline)
+            plt.text(len(traces[channel - channel_indices.min()]), y_baseline - fontsize, f'ch{channel}')
 
     xticks_labels = list(range(round(duration) + 1))
     xticks_locs = [min * sampling_frequency * n_s_per_min for min in xticks_labels]

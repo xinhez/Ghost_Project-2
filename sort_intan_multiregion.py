@@ -1,12 +1,8 @@
-import anndata as ad 
-import argparse
 import datetime
 import glob 
-import matplotlib.pyplot as plt 
 import numpy as np
 import os 
 import pandas as pd
-import scanpy 
 import spikeinterface.core as sc 
 import spikeinterface.curation as scu
 import spikeinterface.extractors as se
@@ -99,12 +95,15 @@ def sort(args, output_root, segment_paths, sorter_parameters):
         probe = create_single_shank_probe(args.shank, f'{output_root}/probe.png')
 
     for region in active_channel_names.keys():
-        recordings = [sc.load_extractor(recording_folder.format(region=region, segment=segment)).set_probe(probe, in_place=True) for segment in range(n_segment)]
+        recordings = [
+            sc.load_extractor(recording_folder.format(region=region, segment=segment)).set_probe(probe, in_place=True) 
+            for segment in range(n_segment)
+        ]
         recording = sc.concatenate_recordings(recordings).set_probe(probe, in_place=True)
         print(f'\t...Preprocessed at {recording_folder}...')
 
         traces_folder = f'{output_root}/{region}/traces'
-        os.makedirs(units_folder, exist_ok=True)
+        os.makedirs(traces_folder, exist_ok=True)
         traces = recording.get_traces().T
         n_min_plotted = 10
         duration = int(np.ceil(traces.shape[1] / recording.sampling_frequency / n_s_per_min))
@@ -117,7 +116,7 @@ def sort(args, output_root, segment_paths, sorter_parameters):
                     plotted_traces, recording.sampling_frequency, 
                     channel_indices if args.shank < 0 else channel_indices[args.shank:args.shank+1], 
                     title=f'{args.subject} -> {region} -> {"all" if args.shank < 0 else f"shank{args.shank}"}', 
-                    savepath=trace_plot_file, trace_gap=150
+                    savepath=trace_plot_file
                 )
         print(f'\t...Plotted at {traces_folder}...')
 
