@@ -91,7 +91,7 @@ def create_single_shank_probe(shank, savepath=None):
         xpitch=inter_electrode_distance, ypitch=inter_electrode_distance,
         contact_shapes='circle', contact_shape_params={'radius': electrode_radius}
     )
-    probe.set_device_channel_indices(np.argsort(channel_indices[shank]))
+    probe.set_device_channel_indices(np.arange(len(channel_indices[shank])))
     plot_probe(probe, with_device_index=True, ax=ax)
     plt.xlim(-150, 150)
     plt.ylim(-200, 200)

@@ -106,7 +106,7 @@ def sort(args, output_root, segment_paths, sorter_parameters):
         if not os.path.isfile(trace_plot_file):
             plotted_traces = traces[:, int(start_min * n_s_per_min * recording.sampling_frequency) : int(end_min * n_s_per_min * recording.sampling_frequency)]
             plot_traces(
-                plotted_traces, recording.sampling_frequency, 
+                plotted_traces, args.shank, recording.sampling_frequency, 
                 channel_indices if args.shank < 0 else channel_indices[args.shank:args.shank+1], 
                 title=f'{args.subject} -> {"all" if args.shank < 0 else f"shank{args.shank}"}', 
                 savepath=trace_plot_file

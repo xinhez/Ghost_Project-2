@@ -39,7 +39,7 @@ def read_recording(recording_paths, shank):
             files.append({
                 'recording_path': recording_path,
                 'sampling_frequency': sampling_frequency,
-                'recording_start': recording_start,  
+                'recording_start': recording_start,
                 'recording_length': raw_traces.shape[1],
             })
             recording_start += raw_traces.shape[1] 
@@ -113,7 +113,7 @@ def sort(args, output_root, segment_paths, sorter_parameters):
             if not os.path.isfile(trace_plot_file):
                 plotted_traces = traces[:, int(start_min * n_s_per_min * recording.sampling_frequency) : int(end_min * n_s_per_min * recording.sampling_frequency)]
                 plot_traces(
-                    plotted_traces, recording.sampling_frequency, 
+                    plotted_traces, args.shank, recording.sampling_frequency, 
                     channel_indices if args.shank < 0 else channel_indices[args.shank:args.shank+1], 
                     title=f'{args.subject} -> {region} -> {"all" if args.shank < 0 else f"shank{args.shank}"}', 
                     savepath=trace_plot_file
