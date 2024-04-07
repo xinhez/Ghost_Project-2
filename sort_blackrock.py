@@ -45,25 +45,25 @@ def get_args():
         default=10,
         help='minimum duration (min) to consider as valid data',
     )
+    parser.add_argument(
+        '--nsx',
+        type=str,
+        default='ns6',
+        help='file format to sort',
+    )
     args = parser.parse_args()
     return args
 
 
 def main(args):
     output_root = f'data/processed/{args.subject}/{"all" if args.shank < 0 else f"shank{args.shank}"}'
-    segment_paths = sorted(glob.glob(f'data/raw/{args.subject}/**/**'))
-    print(f'Saving to {output_root}')
-    print(f'Sorting {args.subject} with {len(segment_paths)} segment(s):')
-    for segment_index, segment_path in enumerate(segment_paths):
-        print(f'    [{segment_index+1:3d}] {segment_path}')
+    segment_paths = sorted(glob.glob(f'data/raw/{args.subject}/**/*.{args.nsx}'))
+    print(f'Saving to {output_root}')    
     
     sorter_parameters['detect_threshold'] = args.threshold
 
-    if 'multiregion' in probe_designs[args.subject]:
-        from sort_intan_multiregion import sort 
-        sort(args, output_root, segment_paths, sorter_parameters)
-    elif 'singleregion' in  probe_designs[args.subject]:
-        from sort_intan_singleregion import sort 
+    if 'singleregion' in  probe_designs[args.subject]:
+        from sort_blackrock_singleregion import sort 
         sort(args, output_root, segment_paths, sorter_parameters)
     else:
         raise Exception("Not implemented!!!")
