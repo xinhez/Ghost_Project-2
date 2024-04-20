@@ -267,7 +267,7 @@ def main(args):
         for unit_id in channel_sorting.unit_ids:
             unit_plot_file = f'{channel_units_folder}/unit{unit_id}.png'
             pbar.set_description(f'plot {args.subject} {args.threshold} unit {unit_id}')
-            if True: # not os.path.isfile(unit_plot_file):
+            if not os.path.isfile(unit_plot_file):
                 plt.figure(figsize=(n_plot_types * subplot_size, n_file * subplot_size))
                 for file_index in range(n_file):
                     condition = session_info.iloc[file_index]['condition']
