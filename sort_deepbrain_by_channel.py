@@ -54,18 +54,7 @@ channel_indices = np.array([
     [64, 65, 66, 67, 71, 70, 69, 68],
     [72, 73, 74, 75, 79, 78, 77, 76],
 ])
-shank_locations = np.array([
-    (115 * 0, 125 * 0), 
-    (115 * 1, 125 * 1), 
-    (115 * 2, 125 * 2), 
-    (115 * 3, 125 * 3), 
-    (115 * 4, 125 * 4), 
-    (115 * 4 + 150, 125 * 4), 
-    (115 * 5 + 150, 125 * 3), 
-    (115 * 6 + 150, 125 * 2), 
-    (115 * 7 + 150, 125 * 1),  
-    (115 * 8 + 150, 125 * 0),
-])
+
 
 probe = generate_multi_columns_probe(
     num_columns=1, 
@@ -86,11 +75,11 @@ sorter_parameters = {
     'adjacency_radius': -1, 
     'freq_min': 300, 
     'freq_max': 3000,
-    'filter': True,
+    'filter': False,
     'whiten': True,  
     'clip_size': 50,
     'num_workers': 8,
-    'detect_interval': 10, # default 10
+    'detect_interval': 9, # default 10
 }
 
 A_active_channel_names = [

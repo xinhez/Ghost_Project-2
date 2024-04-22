@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export subjects=(D13_4 D14_6)
+export subjects=(D13_4 D14_6 D12_6 D13_8 D14_4)
 export thresholds=(4 5)
 
 for threshold in "${thresholds[@]}"

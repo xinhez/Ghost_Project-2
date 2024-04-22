@@ -1,5 +1,6 @@
 import matplotlib 
 matplotlib.use('Agg')
+matplotlib.rcParams['agg.path.chunksize'] = 10000
 
 import anndata as ad
 import argparse
@@ -32,7 +33,6 @@ from src.importrhdutilities import load_file
 
 n_s_per_min = 60
 n_ms_per_s = 1000
-
 channel_indices = np.array([
     [ 0,  1,  2,  3,  7,  6,  5,  4],
     [ 8,  9, 10, 11, 15, 14, 13, 12],
@@ -58,6 +58,7 @@ shank_locations = np.array([
     (115 * 8 + 150, 125 * 0),
 ])
 window_ms, bin_ms = 100, 1.5
+isi_threshold_ms = 1.5
 ms_before, ms_after = 2, 2
 sorter_parameters = {
     'detect_sign': -1,
@@ -190,7 +191,7 @@ def plot_probe_map(ax, unit_id, waveform_extractor, extremum_channel, waveforms,
 def plot_template_map(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment):
     sw.plot_unit_templates(waveform_extractor, unit_ids=[unit_id], axes=[ax], unit_colors={unit_id:plt.cm.tab10(segment)})
 
-def compute_isi_violation_rate(spike_train_ms, window_ms, bin_ms, isi_threshold_ms):
+def compute_isi_violation_rate(spike_train_ms, window_ms, bin_ms):
     bins = np.arange(0, window_ms, bin_ms)
     isi = np.diff(spike_train_ms)
     if (len(isi) == 0) or (isi.min() > window_ms):
@@ -201,10 +202,10 @@ def compute_isi_violation_rate(spike_train_ms, window_ms, bin_ms, isi_threshold_
         rate = (isi < isi_threshold_ms).sum() / len(isi)
         return xs, ys, rate
     
-def plot_ISI(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment, isi_threshold_ms=1.5):
+def plot_ISI(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment):
     n_frames_per_ms = int(waveform_extractor.sorting.sampling_frequency / n_ms_per_s)
     spike_train_ms = waveform_extractor.sorting.get_unit_spike_train(unit_id=unit_id) / n_frames_per_ms
-    xs, ys, rate = compute_isi_violation_rate(spike_train_ms, window_ms, bin_ms, isi_threshold_ms)
+    xs, ys, rate = compute_isi_violation_rate(spike_train_ms, window_ms, bin_ms)
     ax.bar(x=xs, height=ys, width=bin_ms, color=plt.cm.tab10(segment), align="edge")
     ax.set_title(f'ISI violation rate ({isi_threshold_ms}ms): {rate*100:0.1f}%')
     ax.set_xlabel('time (ms)')
@@ -335,8 +336,9 @@ def main(args):
     session_info = []
     traces_folder = f'{folder_root}/traces'
     os.makedirs(traces_folder, exist_ok=True)
-    for segment_path in (pbar := tqdm(sorted(glob.glob(f'data/raw/{args.sortdate}*/{args.subject}*')))):
+    for segment_path in (pbar := tqdm(sorted(glob.glob(f'data/raw/{args.sortdate}*/**/{args.subject}*')))):
         segment_name = segment_path.split('/')[-1]
+        if segment_name in ['extra', 'injection']: continue
         pbar.set_description(segment_name)
         recording_paths = sorted(glob.glob(f'{segment_path}/*.rhd'))
         recording, duration, segment_files = read_recording(recording_paths)
@@ -352,7 +354,14 @@ def main(args):
 
             trace_plot_file = f'{traces_folder}/{segment_name}.png'
             if not os.path.isfile(trace_plot_file):
-                plot_traces(recording.get_traces().T, recording.sampling_frequency, channel_indices, segment_name, trace_plot_file)
+                plot_traces(recording.get_traces().T, recording.sampling_frequency, channel_indices, segment_name, trace_plot_file, trace_gap=100)
+
+            if 'cocaine' in segment_name:
+                for shank in range(len(channel_indices)):
+                    shank_trace_plot_file = f'{traces_folder}/{segment_name}-shank{shank}.png'
+                    if not os.path.isfile(shank_trace_plot_file):
+                        plot_traces(recording.get_traces().T, recording.sampling_frequency, channel_indices[shank:shank+1], f'{segment_name}-shank{shank}', shank_trace_plot_file, trace_gap=100, shank_gap=100)
+                    
 
     session_info = pd.concat(session_info, ignore_index=True)
     session_info.to_csv(f'{folder_root}/session_info.csv', index=False)
@@ -422,8 +431,9 @@ def main(args):
         if not os.path.isfile(unit_plot_file):
             plot_unit(unit_id, session_info, waveform_extractors, savepath=unit_plot_file)
 
-    raster_plot_file = f'{folder_root}/raster{args.threshold}.png'
-
+    rasters_folder = f'{folder_root}/rasters{args.threshold}'
+    os.makedirs(rasters_folder, exist_ok=True)
+    raster_plot_file = f'{rasters_folder}/all.png'
     if not os.path.isfile(raster_plot_file):
         plt.rcParams.update({'font.size': 10})
         plt.figure(figsize=(10 * recording.get_total_duration() / n_s_per_min, len(sorting.unit_ids)/8))
@@ -435,6 +445,8 @@ def main(args):
         plt.tight_layout()
         plt.savefig(raster_plot_file)
         plt.close()
+
+    
 if __name__ == '__main__':
     args = get_args()
     main(args)
