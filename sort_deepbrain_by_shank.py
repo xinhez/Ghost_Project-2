@@ -140,11 +140,11 @@ def plot_unit(unit_id, waveform_extractors, shank_file_indices, savepath,
     for segment in range(n_rows):
         waveform_extractor = waveform_extractors[segment]
         extremum_channel = sc.get_template_extremum_channel(waveform_extractor, peak_sign='neg')[unit_id]
-        extremum_shank = get_shank(extremum_channel)
+        extremum_channel = np.where(waveform_extractors[segment].channel_ids == extremum_channel)[0].item()
         extremum_channels.append(extremum_channel)
 
-        segment_waveforms = sample_objects(waveform_extractor.get_waveforms(unit_id)[:, :, channel_indices[extremum_shank]], max_n=100)
-        segment_templates = waveform_extractor.get_template(unit_id)[:, channel_indices[extremum_shank]]
+        segment_waveforms = waveform_extractor.get_waveforms(unit_id)
+        segment_templates = waveform_extractor.get_template(unit_id)
         waveforms.append(segment_waveforms.transpose(0, 2, 1).reshape(segment_waveforms.shape[0], segment_waveforms.shape[1]*segment_waveforms.shape[2]))
         templates.append(segment_templates.T.flatten())
 
@@ -182,7 +182,6 @@ def main(args):
         print(f'{"*"*20} Processing {subject} {"*"*20}')
 
         recordings_folder = f'data/processed/{subject}/240319/recordings'
-        sortings_folder = f'data/processed/{subject}/240319/sortings{args.threshold}-by-shank'
 
         subject_curation_results = curation_results[curation_results['subject'] == subject] 
 
@@ -232,7 +231,7 @@ def main(args):
                         use_relative_path=True,
                     )
             waveform_extractors = [
-                sc.load_waveforms(folder=f'{waveforms_folder}/file{file_index}', recording=recordings[segment], sorting=sortings[segment]) 
+                sc.load_waveforms(folder=f'{waveforms_folder}/file{file_index}', with_recording=True, sorting=sortings[segment]) 
                 for segment, file_index in enumerate(shank_file_indices)
             ]
             for waveform_extractor in waveform_extractors:
