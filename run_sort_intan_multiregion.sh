@@ -1,7 +1,7 @@
 #!/bin/bash
 
-export subjects=(M10_5 M10_8 M11_4 M9_4 M9_7 M10_1)
-export thresholds=(4)
+export subjects=(M9_7 M9_8 M10_6 M15_2 M15_3 M15_5 M15_7 M16_1 M16_2 M16_6 M16_7 M17_2 M17_5)
+export thresholds=(4 5)
 
 for threshold in "${thresholds[@]}"
 do
@@ -9,7 +9,7 @@ do
     do  
         python sort_intan_multiregion.py \
             --subject "$subject" \
-            --sortdate 240225 \
+            --sortdate 240428 \
             --threshold "$threshold"
     done
 done

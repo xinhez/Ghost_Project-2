@@ -422,6 +422,6 @@ def plot_traces(traces, sampling_frequency, channel_indices, title, savepath, tr
     plt.ylim(-trace_gap, n_channel * trace_gap + (n_shank - 1) * shank_gap)
     plt.xticks(ticks=xticks_locs, labels=xticks_labels)
     plt.xlabel('min')
-    plt.ylabel(r'200 $\mu$V gap between traces')
+    plt.ylabel(rf'{trace_gap} $\mu$V gap between traces')
     plt.savefig(savepath, bbox_inches='tight')
     plt.close()

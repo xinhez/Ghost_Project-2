@@ -150,12 +150,12 @@ def main(args):
         'adjacency_radius': -1, 
         'freq_min': 300, 
         'freq_max': 3000,
-        'filter': True,
+        'filter': False,
         'whiten': True,  
         'clip_size': 50,
         'detect_threshold': args.threshold,
-        'detect_interval': 10, # 0.3ms 
-        'tempdir': 'sorter_tmp',
+        'detect_interval': 9, # 0.3ms
+        'num_workers': 8,
     }
         
     session_paths = glob.glob(f'{input_root}{os.sep}{args.subject}{os.sep}{args.sortdate}{os.sep}**')
@@ -227,39 +227,39 @@ def main(args):
                     session_end = session_start + session_info.loc[session_i, 'file_length']
                     plot_traces(recording_processed.get_traces(start_frame=session_start, end_frame=session_end).T, recording_processed.sampling_frequency, channel_indices, title=f'{args.subject} -> {session}', savepath=session_trace_file, trace_gap=150, session_w=50)
             
-            sorting_folder = f'{region_output_folder}{os.sep}sorting{args.threshold}'
-            if not os.path.isfile(f'{sorting_folder}{os.sep}sorter_output{os.sep}firings.npz'):
-                ss.run_sorter(
-                    sorter_name='mountainsort4',
-                    recording=recording_processed,
-                    output_folder = sorting_folder,
-                    remove_existing_folder=True,
-                    with_output=True,
-                    **sorter_parameters,
-                )
-            sorting = se.NpzSortingExtractor(f'{sorting_folder}{os.sep}sorter_output{os.sep}firings.npz')
+            # sorting_folder = f'{region_output_folder}{os.sep}sorting{args.threshold}'
+            # if not os.path.isfile(f'{sorting_folder}{os.sep}sorter_output{os.sep}firings.npz'):
+            #     ss.run_sorter(
+            #         sorter_name='mountainsort4',
+            #         recording=recording_processed,
+            #         output_folder = sorting_folder,
+            #         remove_existing_folder=True,
+            #         with_output=True,
+            #         **sorter_parameters,
+            #     )
+            # sorting = se.NpzSortingExtractor(f'{sorting_folder}{os.sep}sorter_output{os.sep}firings.npz')
 
-            waveforms_folder = f'{region_output_folder}{os.sep}waveforms{args.threshold}'
-            if not os.path.isfile(f'{waveforms_folder}{os.sep}templates_average.npy'):
-                sc.extract_waveforms(
-                    recording_processed, sorting, 
-                    folder=waveforms_folder,
-                    ms_before=ms_before, ms_after=ms_after, max_spikes_per_unit=None,
-                    return_scaled=False,
-                    overwrite=True,
-                    use_relative_path=True,
-                )
-            waveform_extractor = sc.load_waveforms(
-                folder=f'{waveforms_folder}', with_recording=True, sorting=sorting
-            )
-            extremum_channels = sc.get_template_extremum_channel(waveform_extractor, peak_sign='neg') 
+            # waveforms_folder = f'{region_output_folder}{os.sep}waveforms{args.threshold}'
+            # if not os.path.isfile(f'{waveforms_folder}{os.sep}templates_average.npy'):
+            #     sc.extract_waveforms(
+            #         recording_processed, sorting, 
+            #         folder=waveforms_folder,
+            #         ms_before=ms_before, ms_after=ms_after, max_spikes_per_unit=None,
+            #         return_scaled=False,
+            #         overwrite=True,
+            #         use_relative_path=True,
+            #     )
+            # waveform_extractor = sc.load_waveforms(
+            #     folder=f'{waveforms_folder}', with_recording=True, sorting=sorting
+            # )
+            # extremum_channels = sc.get_template_extremum_channel(waveform_extractor, peak_sign='neg') 
             
-            units_folder = f'{region_output_folder}{os.sep}units{args.threshold}'
-            os.makedirs(units_folder, exist_ok=True)
-            for unit_id in tqdm(sorting.unit_ids):
-                unit_plot_file = f'{units_folder}{os.sep}{unit_id}.png'
-                if not os.path.isfile(unit_plot_file):
-                    plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_indices, initdate='20240101', savepath=unit_plot_file)
+            # units_folder = f'{region_output_folder}{os.sep}units{args.threshold}'
+            # os.makedirs(units_folder, exist_ok=True)
+            # for unit_id in tqdm(sorting.unit_ids):
+            #     unit_plot_file = f'{units_folder}{os.sep}{unit_id}.png'
+            #     if not os.path.isfile(unit_plot_file):
+            #         plot_unit(waveform_extractor, extremum_channels, sorting, unit_id, channel_indices, initdate='20240101', savepath=unit_plot_file)
 
 
 if __name__ == '__main__':

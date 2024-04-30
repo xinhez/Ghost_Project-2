@@ -1,3 +1,6 @@
+import matplotlib
+matplotlib.use('Agg')
+
 import anndata as ad
 import argparse
 import datetime
@@ -68,15 +71,16 @@ sorter_parameters = {
     'adjacency_radius': -1, 
     'freq_min': 300, 
     'freq_max': 3000,
-    'filter': True,
+    'filter': False,
     'whiten': True,  
     'clip_size': 50,
-    'num_workers': 8,
-    'detect_interval': 10, # default 10
+    'num_workers': 4,
+    'detect_interval': 9, # default 10
 }
 surgery_dates = {
     'M9_4':  '20240211',
     'M9_7':  '20240211',
+    'M10_1': '20240211',
     'M10_6': '20240222',
     'M10_8': '20240128',
     'M11_4': '20240128',
@@ -90,7 +94,7 @@ def get_args():
         help = 'subject name to sort',
     )
     parser.add_argument(
-        '--sortdate',
+        '--savedate',
         type=str,
         default=datetime.datetime.today().strftime('%Y%m%d'),
         help = 'directory to save all result',
@@ -306,7 +310,7 @@ def plot_unit(unit_id, session_info, init_date, waveform_extractors, savepath,
 def main(args):
     sorter_parameters['detect_threshold'] = args.threshold
 
-    folder_root = f'data/processed/longterm/{args.subject}/{args.sortdate}'
+    folder_root = f'data/processed/longterm/{args.subject}/{args.savedate}'
     os.makedirs(folder_root, exist_ok=True)
     print(f'Saving results to {folder_root}...')
 
