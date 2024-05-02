@@ -17,7 +17,7 @@ sorter_parameters = {
     'filter': False,
     'whiten': True,  
     'clip_size': 50,
-    'num_workers': 8,
+    'num_workers': None,
 }
 
 def get_args():

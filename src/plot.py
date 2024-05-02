@@ -2,6 +2,7 @@ import anndata as ad
 import datetime
 import matplotlib.pyplot as plt
 import numpy as np
+import re
 import scanpy
 import spikeinterface.core as sc
 import spikeinterface.widgets as sw
@@ -109,7 +110,11 @@ def plot_unit(unit_id, session_info, init_date, waveform_extractors, channel_ind
         waveforms.append(segment_waveforms.transpose(0, 2, 1).reshape(segment_waveforms.shape[0], segment_waveforms.shape[1]*segment_waveforms.shape[2]))
         templates.append(segment_templates.T.flatten())
 
-        dates.append(datetime.datetime.strptime(segment_path.split('/')[-1].split('_')[-2], '%y%m%d'))
+        try:
+            dates.append(datetime.datetime.strptime(segment_path.split('/')[-1].split('_')[-2], '%y%m%d'))
+        except:
+            match = re.search(r'(\d{4})(\d{2})(\d{2})', segment_path)
+            dates.append(datetime.datetime.strptime(match.group(0), '%Y%m%d'))
 
     adata = ad.AnnData(np.vstack(waveforms))
     adata.obs['segment'] = np.hstack([[segment] * len(segment_waveforms) for segment, segment_waveforms in enumerate(waveforms)])
@@ -131,9 +136,9 @@ def plot_unit(unit_id, session_info, init_date, waveform_extractors, channel_ind
             if plot_type == 'UMAP':
                 ax.set_xlim(adata.obsm['X_umap'][:, 0].min(), adata.obsm['X_umap'][:, 0].max())
                 ax.set_ylim(adata.obsm['X_umap'][:, 1].min(), adata.obsm['X_umap'][:, 1].max())
-                ax.set_title(f'[{segment}]' + ax.get_title(), fontsize=50)
+                ax.set_title(f'[{segment}]' + ax.get_title(), fontsize=35)
             if plot_type == 'autocorrelogram':
-                ax.set_title(f'unit (' + ax.get_title() + f') {round(lapse)} wk', fontsize=50)
+                ax.set_title(f'unit (' + ax.get_title() + f') {round(lapse)} wk', fontsize=35)
     plt.tight_layout()
     plt.savefig(savepath)
     plt.close()
@@ -162,5 +167,6 @@ def plot_traces(traces, shank, sampling_frequency, channel_indices, title, savep
     plt.xlabel('min')
     plt.ylabel(rf'{trace_gap} $\mu$V gap between traces')
     plt.savefig(savepath, bbox_inches='tight')
-    plt.close()
+    plt.clf()
+    plt.close('all')
     

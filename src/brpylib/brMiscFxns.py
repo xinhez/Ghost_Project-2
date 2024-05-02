@@ -87,7 +87,7 @@ def openfilecheck(open_mode, file_name="", file_ext="", file_type=""):
             file_name = ""
             print("\n*** File given does exist, try again ***\n")
 
-    print("\n" + file_name.split("/")[-1] + " opened")
+    # print("\n" + file_name.split("/")[-1] + " opened")
     return open(file_name, open_mode)
 
 
