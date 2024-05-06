@@ -1,10 +1,11 @@
-import anndata as ad
+import anndata as ad 
+import argparse
 import matplotlib.pyplot as plt
 import numpy as np 
 import os
 import pandas as pd 
 import scanpy
-import spikeinterface.core as sc
+import spikeinterface.core as sc 
 import spikeinterface.curation as scu
 import spikeinterface.extractors as se
 import spikeinterface.postprocessing as spost
@@ -14,11 +15,22 @@ import spikeinterface.widgets as sw
 from probeinterface import generate_multi_columns_probe
 from tqdm.auto import tqdm
 
-n_file_per_condition = 10
-colors = { i: color for i, color in enumerate(['orange'] * n_file_per_condition + ['green'] * n_file_per_condition + ['blue'] * n_file_per_condition + ['red'] * n_file_per_condition) }
-
-curation_traces = pd.read_csv('curation_traces.csv')    
-conditions = ['before-saline', 'after-saline', 'before-drug', 'after-drug']
+curation_results = pd.read_csv('curation_results.csv')
+colors = { i: color for i, color in enumerate(['orange'] * 10 + ['green'] * 10 + ['blue'] * 10 + ['red'] * 10) }
+sorter_parameters = {
+    'detect_sign': -1,
+    'adjacency_radius': -1, 
+    'freq_min': 300, 
+    'freq_max': 3000,
+    'filter': False,
+    'whiten': True,  
+    'clip_size': 50,
+    'num_workers': 2,
+    'detect_interval': 9, # default 10
+}
+ms_before, ms_after = 2, 2
+window_ms, bin_ms, isi_threshold_ms = 100, 1.5, 1.5
+n_ms_per_s = 1000
 
 channel_indices = np.array([
     [ 0,  1,  2,  3,  7,  6,  5,  4],
@@ -40,22 +52,6 @@ probe = generate_multi_columns_probe(
 )
 probe.set_device_channel_indices(np.arange(channel_indices.shape[1]))
 
-threshold = 3.6
-sorter_parameters = {
-    'detect_sign': -1,
-    'adjacency_radius': -1, 
-    'freq_min': 300, 
-    'freq_max': 3000,
-    'filter': False,
-    'whiten': True,  
-    'clip_size': 50,
-    'num_workers': 8,
-    'detect_interval': 9, # 0.3ms
-    'detect_threshold': threshold,
-}
-ms_before, ms_after = 2, 2
-window_ms, bin_ms, isi_threshold_ms = 100, 1.5, 1.5
-n_ms_per_s = 1000
 
 
 def plot_autocorrelogram(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, color):
@@ -179,26 +175,29 @@ def plot_unit(unit_id, waveform_extractors, shank_file_indices, savepath,
     plt.close()
 
 
-if __name__ == '__main__':
-    for subject in (pbar := tqdm(sorted(curation_traces['mouse'].unique()))):
-        subject_curations = curation_traces[curation_traces['mouse'] == subject]
+def main(args):
+    sorter_parameters['detect_threshold'] = args.threshold
+
+    for subject in curation_results['subject'].unique():
+        print(f'{"*"*20} Processing {subject} {"*"*20}')
 
         recordings_folder = f'data/processed/{subject}/240319/recordings'
 
-        for shank in sorted(subject_curations['shank'].unique()):
-            shank_curations = subject_curations[subject_curations['shank'] == shank]
-            
-            file_indices = {
-                condition: shank_curations[condition].item().split(',') for condition in conditions
-            }
-            
-            shank_file_indices = [int(file_index) for condition in conditions for file_index in file_indices[condition]]
+        subject_curation_results = curation_results[curation_results['subject'] == subject] 
+
+        for shank in (pbar := tqdm (subject_curation_results['shank'].unique())):    
+            pbar.set_description(f'{subject} shank {shank}')
+            shank_curation_results = subject_curation_results[subject_curation_results['shank'] == shank]
+            shank_file_indices = [int(file_index) for file_indices in shank_curation_results['positive_file_indices'] for file_index in file_indices.split(',')]
 
             recordings = [sc.load_extractor(f'{recordings_folder}/file{file_index}') for file_index in shank_file_indices]
             recordings = [file_recording.channel_slice(channel_ids=file_recording.channel_ids[channel_indices[shank]]).set_probe(probe) for file_recording in recordings]
             recording = sc.concatenate_recordings(recordings)
-            
-            sortings_folder = f'data/processed/{subject}/240319/traces-curation-sortings/shank{shank}-{threshold}'
+
+            pbar.set_description(f'{subject} shank {shank} preprocessed')
+        
+            sortings_folder = f'data/processed/{subject}/240319/sortings-by-shanks/shank{shank}-{args.threshold}'
+
             if not os.path.isfile(f'{sortings_folder}/sorter_output/firings.npz'):
                 ss.run_sorter(
                     sorter_name='mountainsort4',
@@ -217,7 +216,9 @@ if __name__ == '__main__':
             sorting = se.NpzSortingExtractor(f'{sortings_folder}/sorter_output/firings.npz')
             sortings = [se.NpzSortingExtractor(f'{sortings_folder}/sorter_output/file{file_index}.npz') for file_index in shank_file_indices]
 
-            waveforms_folder = f'data/processed/{subject}/240319/traces-curation-waveforms/shank{shank}-{threshold}'
+            pbar.set_description(f'{subject} shank {shank} sorted')
+
+            waveforms_folder = f'data/processed/{subject}/240319/waveforms-by-shanks/shank{shank}-{args.threshold}'
             for segment, file_index in enumerate(shank_file_indices):
                 file_waveform_folder = f'{waveforms_folder}/file{file_index}'
                 if not os.path.isfile(f'{file_waveform_folder}/templates_average.npy'):
@@ -236,10 +237,28 @@ if __name__ == '__main__':
             for waveform_extractor in waveform_extractors:
                 spost.compute_unit_locations(waveform_extractor, load_if_exists=False)
 
-            units_folder = f'data/processed/{subject}/240319/traces-curation-units/shank{shank}-{threshold}'
+            pbar.set_description(f'{subject} shank {shank} waveform extracted')
+
+            units_folder = f'data/processed/{subject}/240319/units-by-shanks/shank{shank}-{args.threshold}'
             os.makedirs(units_folder, exist_ok=True)
             for unit_id in sorting.unit_ids:
-                pbar.set_description(f'{subject} shank {shank} unit {unit_id} / {len(sorting.unit_ids)}')
+                pbar.set_description(f'{subject} shank {shank} plotting {unit_id} / {len(sorting.unit_ids)}')
                 unit_plot_file = f'{units_folder}/unit{unit_id}.png'
                 if not os.path.isfile(unit_plot_file):
                     plot_unit(unit_id, waveform_extractors, shank_file_indices, savepath=unit_plot_file)
+
+
+def get_args():
+    parser = argparse.ArgumentParser(description='Run Parameters')
+    parser.add_argument(
+        '--threshold',
+        type=float,
+        help = 'sorting detect threshold',
+    )
+
+    args = parser.parse_args()
+    return args
+
+if __name__ == '__main__':
+    args = get_args()
+    main(args)
