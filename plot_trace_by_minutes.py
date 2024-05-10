@@ -41,7 +41,7 @@ C_active_channel_names = [
 
 active_channel_names = A_active_channel_names + B_active_channel_names + C_active_channel_names
 
-sortdate = '240506'
+sortdate = '240507'
 n_s_per_min = 60
 
 def plot_traces(traces, sampling_frequency, channel_indices, title, savepath, session_w=10, trace_gap=75, shank_gap=150, fontsize=25):

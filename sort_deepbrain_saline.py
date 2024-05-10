@@ -99,7 +99,7 @@ def get_args():
     parser.add_argument(
         '--threshold',
         type=float,
-        default=5.0,
+        default=4.0,
         help = 'sorting detect threshold',
     )
     parser.add_argument(

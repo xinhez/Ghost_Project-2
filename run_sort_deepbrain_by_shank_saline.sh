@@ -4,5 +4,5 @@ export subjects=(D13_8) #     D12_6 D13_4 D14_6
 
 for subject in "${subjects[@]}"
 do
-    python sort_deepbrain_by_shank_v2.py --subject "$subject"
+    python sort_deepbrain_by_shank_saline.py --subject "$subject"
 done
