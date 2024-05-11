@@ -2,21 +2,23 @@ import glob
 import os 
 import shutil 
 
-date = '240319'
-output_folder = f'data/processed/{date}-dp-resort'
+date = '240510'
+threshold = 5.5
+output_folder = f'data/processed/{date}-experiment-both-{threshold}'
 
-thresholds = {
-    'D12_6': 4.0,
-    'D13_4': 4.0,
-    'D13_8': 4.0,
-    'D14_6': 4.0,
-}
 
-for subject, threshold in thresholds.items():
-    for src in (glob.glob(f'data/processed/{subject}/{date}/traces-curation-units/shank*-{threshold}')):
-        subject =  src.split('/')[2]
-        param = src.split('/')[-1]
-        tgt = f'{output_folder}/{subject}/{param}'
+# for subject in ['D12_6', 'D13_4', 'D13_8', 'D14_6']:
+#     for tag, group in zip(['saline', 'drug'], ['240506', '240507']):
+#         for src in (glob.glob(f'data/processed/{subject}/{group}/units-5.5')):
+#             tgt = f'{output_folder}/{subject}/{tag}'
+#             print(src)
+#             print(tgt)
+#             shutil.copytree(src, tgt)
+#             print()
+
+for subject in ['D12_6', 'D13_4', 'D13_8', 'D14_6']:
+    for src in (glob.glob(f'data/processed/experiment/{subject}/units-{threshold}')):
+        tgt = f'{output_folder}/{subject}/'
         print(src)
         print(tgt)
         shutil.copytree(src, tgt)
