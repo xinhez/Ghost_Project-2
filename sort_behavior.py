@@ -53,6 +53,7 @@ sorter_parameters = {
     'whiten': True,  
     'clip_size': 50,
     'detect_interval': 9, # 0.3ms 
+    'num_workers': 28,
 }
 
 def create_probe(channel_indices, shank_locations, n_rows, n_cols, inter_electrode_distance, electrode_radius, savepath=None):
@@ -324,7 +325,8 @@ def main(args):
         for region in channels_by_region.keys():
             recordings = [sc.load_extractor(f'{output_root}/{region}/recordings/segment{segment_index}').set_probe(probe) for segment_index in range(n_segment)]
             recording = sc.concatenate_recordings(recordings).set_probe(probe)
-
+            print(recording)
+            
             sortings_folder = f'{output_root}/{region}/sortings-{args.threshold}'
             if not os.path.isfile(f'{sortings_folder}/sorter_output/firings.npz'):
                 ss.run_sorter(
@@ -352,17 +354,18 @@ def main(args):
                         overwrite=True,
                         use_relative_path=True,
                     )
-            waveform_extractors = [sc.load_waveforms(folder=f'{waveforms_folder}/segment{segment_index}', with_recording=True, sorting=sortings[segment_index]) for segment_index in range(n_segment)]
+            waveform_extractors = [sc.load_waveforms(folder=f'{waveforms_folder}/segment{segment_index}', with_recording=False, sorting=sortings[segment_index]) for segment_index in range(n_segment)]
+            for segment_index in range(n_segment):
+                waveform_extractors[segment_index].set_recording(recordings[segment_index])
+                spost.compute_unit_locations(waveform_extractors[segment_index], load_if_exists=False)
 
             units_folder = f'{output_root}/{region}/units-{args.threshold}'
             os.makedirs(units_folder, exist_ok=True)
-            for unit_id in sorting.unit_ids:
+            for unit_id in (pbar := tqdm (sorting.unit_ids)):
                 pbar.set_description(f'plotting {unit_id}/{len(sorting.unit_ids)}')
                 unit_plot_file = f'{units_folder}/{unit_id}.png'
                 if not os.path.isfile(unit_plot_file):
                     plot_unit(unit_id, waveform_extractors, channel_indices, savepath=unit_plot_file)
-
-
 
 if __name__ == '__main__':
     args = get_args()
