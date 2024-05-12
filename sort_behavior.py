@@ -1,5 +1,6 @@
 import anndata as ad
 import argparse
+import datetime
 import glob 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -53,7 +54,7 @@ sorter_parameters = {
     'whiten': True,  
     'clip_size': 50,
     'detect_interval': 9, # 0.3ms 
-    'num_workers': 28,
+    'num_workers': 8,
 }
 
 def create_probe(channel_indices, shank_locations, n_rows, n_cols, inter_electrode_distance, electrode_radius, savepath=None):
@@ -118,21 +119,21 @@ def plot_ISI(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templ
     spike_train_ms = waveform_extractor.sorting.get_unit_spike_train(unit_id=unit_id) / n_frames_per_ms
     xs, ys, rate = compute_isi_violation_rate(spike_train_ms, window_ms, bin_ms, isi_threshold_ms)
     ax.bar(x=xs, height=ys, width=bin_ms, color=plt.cm.tab10(segment % 10), align="edge")
-    ax.set_title(f'ISI violation rate ({isi_threshold_ms}ms): {rate*100:0.1f}%')
+    ax.set_title(f'ISI violation ({isi_threshold_ms}ms): {rate*100:0.1f}%')
     ax.set_xlabel('time (ms)')
 
 def plot_template_extremum(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment):
     unit_extremum_template = waveform_extractor.get_template(unit_id)[:, extremum_channel]
     ax.plot(unit_extremum_template.T, label=unit_id)
-    ax.set_title(f'{unit_id} template at ch {extremum_channel}')
+    ax.set_title(f'{unit_id} at ch{extremum_channel}')
 
 def plot_template(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment):
     ax.plot(templates, label=unit_id, color=plt.cm.tab10(segment % 10))
-    ax.set_title(f'{unit_id} template at ch {extremum_channel}')
+    ax.set_title(f'{unit_id} template (shank)')
 
 def plot_waveforms(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment):
     ax.plot(waveforms.T, label=unit_id, lw=0.5, color=plt.cm.tab10(segment % 10))
-    ax.set_title(f'{unit_id} waveforms at ch {extremum_channel}')
+    ax.set_title(f'{unit_id} waveforms (shank)')
 
 def plot_UMAP(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment):
     if len(adata) > 0:
@@ -221,6 +222,11 @@ def get_args():
         default=5.5,
         help='sorting detect threshold',
     )
+    parser.add_argument(
+        '--run_sort',
+        type=str,
+        help='run code after preprocessing',
+    )
     args = parser.parse_args()
     return args
 
@@ -228,7 +234,7 @@ def main(args):
     sorter_parameters['detect_threshold'] = args.threshold
 
     output_root = f'data/processed/{args.subject}'
-    print('*'*20, output_root, args.threshold, '*'*20)
+    print('*'*20, output_root, args.threshold, eval(args.run_sort), '*'*20)
 
     session_info_file = f'{output_root}/info.csv'
 
@@ -243,7 +249,10 @@ def main(args):
             segment_traces = { 'CA1': [], 'M1': [] }
             triggers = []
             for recording_path in recording_paths:
-                raw_data, data_present = load_file(recording_path)
+                try:
+                    raw_data, data_present = load_file(recording_path)
+                except:
+                    data_present = False
                 if data_present:
                     recorded_channels = [channel_info['native_channel_name'] for channel_info in raw_data['amplifier_channels']]
                     for region, region_channels in channels_by_region.items():
@@ -312,7 +321,7 @@ def main(args):
             segment_start += segment_duration
         session_info = pd.json_normalize(session_info)
         session_info.to_csv(session_info_file, index=False)
-    else:
+    if eval(args.run_sort):
         session_info = pd.read_csv(session_info_file)
         n_segment = len(session_info)
         probe = create_probe(
@@ -327,6 +336,7 @@ def main(args):
             recording = sc.concatenate_recordings(recordings).set_probe(probe)
             print(recording)
             
+            print('Begin sorting at', datetime.datetime.now())
             sortings_folder = f'{output_root}/{region}/sortings-{args.threshold}'
             if not os.path.isfile(f'{sortings_folder}/sorter_output/firings.npz'):
                 ss.run_sorter(
