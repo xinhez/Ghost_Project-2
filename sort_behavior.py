@@ -54,7 +54,7 @@ sorter_parameters = {
     'whiten': True,  
     'clip_size': 50,
     'detect_interval': 9, # 0.3ms 
-    'num_workers': 8,
+    'num_workers': None,
 }
 
 def create_probe(channel_indices, shank_locations, n_rows, n_cols, inter_electrode_distance, electrode_radius, savepath=None):
@@ -345,6 +345,7 @@ def main(args):
                     output_folder = sortings_folder,
                     remove_existing_folder=True,
                     with_output=False,
+                    verbose=True,
                     **sorter_parameters,
                 )
             sorting = se.NpzSortingExtractor(f'{sortings_folder}/sorter_output/firings.npz')
