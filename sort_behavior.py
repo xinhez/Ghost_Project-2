@@ -54,7 +54,6 @@ sorter_parameters = {
     'whiten': True,  
     'clip_size': 50,
     'detect_interval': 9, # 0.3ms 
-    'num_workers': None,
 }
 
 def create_probe(channel_indices, shank_locations, n_rows, n_cols, inter_electrode_distance, electrode_radius, savepath=None):
@@ -227,6 +226,11 @@ def get_args():
         type=str,
         help='run code after preprocessing',
     )
+    parser.add_argument(
+        '--region',
+        type=str,
+        help='regions to sort',
+    )
     args = parser.parse_args()
     return args
 
@@ -234,7 +238,7 @@ def main(args):
     sorter_parameters['detect_threshold'] = args.threshold
 
     output_root = f'data/processed/{args.subject}'
-    print('*'*20, output_root, args.threshold, eval(args.run_sort), '*'*20)
+    print('*'*20, output_root, args.threshold, eval(args.run_sort), args.region, '*'*20)
 
     session_info_file = f'{output_root}/info.csv'
 
@@ -331,7 +335,7 @@ def main(args):
             inter_electrode_distance=30, 
             electrode_radius=10, savepath=f'{output_root}/probe'
         )
-        for region in channels_by_region.keys():
+        for region in [args.region]: # channels_by_region.keys():
             recordings = [sc.load_extractor(f'{output_root}/{region}/recordings/segment{segment_index}').set_probe(probe) for segment_index in range(n_segment)]
             recording = sc.concatenate_recordings(recordings).set_probe(probe)
             print(recording)
