@@ -90,16 +90,16 @@ def create_probe(channel_indices, shank_locations, n_rows, n_cols, inter_electro
     return multi_shank_probe
 
 
-def plot_autocorrelogram(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment):
+def plot_autocorrelogram(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment, trial_starts, trial_ends):
     sw.plot_autocorrelograms(waveform_extractor.sorting, window_ms=window_ms, bin_ms=bin_ms, unit_ids=[unit_id], axes=[ax], unit_colors={unit_id:plt.cm.tab10(segment % 10)})
 
-def plot_location(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment):
+def plot_location(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment, trial_starts, trial_ends):
     sw.plot_unit_locations(waveform_extractor, unit_ids=[unit_id], ax=ax)
 
-def plot_probe_map(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment):
+def plot_probe_map(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment, trial_starts, trial_ends):
     sw.plot_unit_probe_map(waveform_extractor, unit_ids=[unit_id], axes=[ax])
 
-def plot_template_map(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment):
+def plot_template_map(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment, trial_starts, trial_ends):
     sw.plot_unit_templates(waveform_extractor, unit_ids=[unit_id], axes=[ax], unit_colors={unit_id:plt.cm.tab10(segment % 10)})
 
 def compute_isi_violation_rate(spike_train_ms, window_ms, bin_ms, isi_threshold_ms):
@@ -113,7 +113,7 @@ def compute_isi_violation_rate(spike_train_ms, window_ms, bin_ms, isi_threshold_
         rate = (isi < isi_threshold_ms).sum() / len(isi)
         return xs, ys, rate
     
-def plot_ISI(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment, isi_threshold_ms=1.5):
+def plot_ISI(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment, trial_starts, trial_ends, isi_threshold_ms=1.5):
     n_frames_per_ms = int(waveform_extractor.sorting.sampling_frequency / n_ms_per_s)
     spike_train_ms = waveform_extractor.sorting.get_unit_spike_train(unit_id=unit_id) / n_frames_per_ms
     xs, ys, rate = compute_isi_violation_rate(spike_train_ms, window_ms, bin_ms, isi_threshold_ms)
@@ -121,20 +121,20 @@ def plot_ISI(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templ
     ax.set_title(f'ISI violation ({isi_threshold_ms}ms): {rate*100:0.1f}%')
     ax.set_xlabel('time (ms)')
 
-def plot_template_extremum(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment):
+def plot_template_extremum(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment, trial_starts, trial_ends):
     unit_extremum_template = waveform_extractor.get_template(unit_id)[:, extremum_channel]
     ax.plot(unit_extremum_template.T, label=unit_id)
     ax.set_title(f'{unit_id} at ch{extremum_channel}')
 
-def plot_template(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment):
+def plot_template(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment, trial_starts, trial_ends):
     ax.plot(templates, label=unit_id, color=plt.cm.tab10(segment % 10))
     ax.set_title(f'{unit_id} template (shank)')
 
-def plot_waveforms(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment):
+def plot_waveforms(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment, trial_starts, trial_ends):
     ax.plot(waveforms.T, label=unit_id, lw=0.5, color=plt.cm.tab10(segment % 10))
     ax.set_title(f'{unit_id} waveforms (shank)')
 
-def plot_UMAP(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment):
+def plot_UMAP(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment, trial_starts, trial_ends):
     if len(adata) > 0:
         ax.scatter(adata.obsm['X_umap'][:, 0], adata.obsm['X_umap'][:, 1], color=plt.cm.tab10(segment % 10), s=100)
         ax.set_title(f'[{segment}]', fontsize=25)
@@ -153,8 +153,17 @@ def sample_objects(objects, max_n=None):
     else:
         return objects[np.random.choice(np.arange(len(objects)), max_n, replace=False)]
 
-def plot_unit(unit_id, waveform_extractors, channel_indices, savepath,
-              plot_types=['autocorrelogram', 'location', 'probe_map', 'template_map', 'template_extremum', 'template', 'waveforms', 'ISI', 'UMAP'],
+def plot_trials(ax, unit_id, waveform_extractor, extremum_channel, waveforms, templates, adata, segment, trial_starts, trial_ends, plot_duration=2):
+    events = []
+    spike_train = waveform_extractor.sorting.get_unit_spike_train(unit_id=unit_id)
+    for trial_start, trial_end in zip(trial_starts, trial_ends):
+        plot_t_start = trial_start - plot_duration * waveform_extractor.sorting.sampling_frequency
+        plot_t_end = trial_start + plot_duration * waveform_extractor.sorting.sampling_frequency
+        assert plot_t_end <= trial_end
+        events.append(spike_train[(spike_train >= plot_t_start) & (spike_train < plot_t_end)]-trial_start)
+    ax.eventplot(events)    
+    
+def plot_unit(unit_id, waveform_extractors, channel_indices, session_info, savepath, plot_types=['autocorrelogram', 'location', 'probe_map', 'template_map', 'template_extremum', 'template', 'waveforms', 'ISI', 'UMAP', 'trials'],
               subplot_size=5, min_spikes=10):
     plt.rcParams.update({'font.size': 25})
     plot_fns = {
@@ -167,6 +176,7 @@ def plot_unit(unit_id, waveform_extractors, channel_indices, savepath,
         'template': plot_template, 
         'waveforms': plot_waveforms, 
         'UMAP': plot_UMAP,
+        'trials': plot_trials,
     }
     n_rows = len(waveform_extractors)
     n_cols = len(plot_types)
@@ -198,9 +208,13 @@ def plot_unit(unit_id, waveform_extractors, channel_indices, savepath,
         segment_adata = adata[adata.obs['segment'] == segment_index]
         if len(segment_adata) == 0:
             continue
+
+        segment_info = session_info[session_info['segment_index'] == segment_index]
+        trial_starts = eval(segment_info['trial_starts'].item())
+        trial_ends = eval(segment_info['trial_ends'].item())
         for plot_i, plot_type in enumerate(plot_types):
             ax = plt.subplot(n_rows, n_cols, plot_i + segment_index * n_cols+1)
-            plot_fns[plot_type](ax, unit_id, waveform_extractors[segment_index], extremum_channels[segment_index], waveforms[segment_index], templates[segment_index], segment_adata, segment_index)
+            plot_fns[plot_type](ax, unit_id, waveform_extractors[segment_index], extremum_channels[segment_index], waveforms[segment_index], templates[segment_index], segment_adata, segment_index, trial_starts, trial_ends)
             if plot_type == 'UMAP':
                 ax.set_xlim(adata.obsm['X_umap'][:, 0].min(), adata.obsm['X_umap'][:, 0].max())
                 ax.set_ylim(adata.obsm['X_umap'][:, 1].min(), adata.obsm['X_umap'][:, 1].max())
@@ -336,12 +350,16 @@ def main(args):
             electrode_radius=10, savepath=f'{output_root}/probe'
         )
         for region in [args.region]: # channels_by_region.keys():
+            sortings_folder = f'{output_root}/{region}/sortings-{args.threshold}'
+            waveforms_folder = f'{output_root}/{region}/waveforms-{args.threshold}'
+            units_folder = f'{output_root}/{region}/units-{args.threshold}'
+            curations_folder = f'{output_root}/{region}/curations-{args.threshold}'
+            
             recordings = [sc.load_extractor(f'{output_root}/{region}/recordings/segment{segment_index}').set_probe(probe) for segment_index in range(n_segment)]
             recording = sc.concatenate_recordings(recordings).set_probe(probe)
             print(recording)
             
             print('Begin sorting at', datetime.datetime.now())
-            sortings_folder = f'{output_root}/{region}/sortings-{args.threshold}'
             if not os.path.isfile(f'{sortings_folder}/sorter_output/firings.npz'):
                 ss.run_sorter(
                     sorter_name='mountainsort4',
@@ -356,8 +374,11 @@ def main(args):
             sorting = scu.remove_excess_spikes(sorting, recording)
             sortings = sc.split_sorting(sorting, recordings)
             sortings = [sc.select_segment_sorting(sortings, segment_indices=segment) for segment in range(len(recordings))]
+            print('End sorting at', datetime.datetime.now())
+            print(f'Sorted {len(sorting.unit_ids)} units')
 
-            waveforms_folder = f'{output_root}/{region}/waveforms-{args.threshold}'
+            if os.path.isdir(units_folder) and os.path.isdir(curations_folder): continue
+
             for segment_index in range(n_segment):
                 segment_waveform_folder = f'{waveforms_folder}/segment{segment_index}'
                 if not os.path.isfile(f'{segment_waveform_folder}/templates_average.npy'):
@@ -374,13 +395,19 @@ def main(args):
                 waveform_extractors[segment_index].set_recording(recordings[segment_index])
                 spost.compute_unit_locations(waveform_extractors[segment_index], load_if_exists=False)
 
-            units_folder = f'{output_root}/{region}/units-{args.threshold}'
-            os.makedirs(units_folder, exist_ok=True)
+            # os.makedirs(units_folder, exist_ok=True)
+            # for unit_id in (pbar := tqdm (sorting.unit_ids)):
+            #     pbar.set_description(f'plotting {unit_id}/{len(sorting.unit_ids)}')
+            #     unit_plot_file = f'{units_folder}/{unit_id}.png'
+            #     if not os.path.isfile(unit_plot_file):
+            #         plot_unit(unit_id, waveform_extractors, channel_indices, savepath=unit_plot_file)
+
+            os.makedirs(curations_folder, exist_ok=True)
             for unit_id in (pbar := tqdm (sorting.unit_ids)):
                 pbar.set_description(f'plotting {unit_id}/{len(sorting.unit_ids)}')
-                unit_plot_file = f'{units_folder}/{unit_id}.png'
+                unit_plot_file = f'{curations_folder}/{unit_id}.png'
                 if not os.path.isfile(unit_plot_file):
-                    plot_unit(unit_id, waveform_extractors, channel_indices, savepath=unit_plot_file)
+                    plot_unit(unit_id, waveform_extractors, channel_indices, session_info, savepath=unit_plot_file)
 
 if __name__ == '__main__':
     args = get_args()
