@@ -36,6 +36,9 @@ for threshold in [3.5, 4.5, 5.5, 6.5]:
             n_frames_per_ms = int(sorting.sampling_frequency / n_ms_per_s)
             for unit_id in sorting.unit_ids:
                 pbar.set_description(f'threshold {threshold} {subject} - {region} - {unit_id} / {len(sorting.unit_ids)}')
+
+                if os.path.isfile(f'{heatmap_folder}/{unit_id}.png'):
+                    continue
                 trial_bins = []
                 for segment_index in range(n_segment):
                     segment_info = session_info[session_info['segment_index']==segment_index]
