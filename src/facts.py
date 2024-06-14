@@ -1,7 +1,4 @@
 probe_designs = {
-    # Multiple Region
-    'M9_7': 'multiregion_80pin',
-    'M10_6': 'multiregion_80pin',
     # Lateral Implantation
     'L11_9': 'multiregion_80pin',
     'L16_8': 'multiregion_80pin',
@@ -13,6 +10,26 @@ probe_designs = {
     '6_2': 'singleregion_32pin',
     '6_7': 'singleregion_32pin',
     '7_2': 'singleregion_32pin',
+    # Multiple Region
+    'M9_4': 'multiregion_80pin',
+    'M9_6': 'multiregion_80pin',
+    'M9_7': 'multiregion_80pin',
+    'M9_8': 'multiregion_80pin',
+    'M10_1': 'multiregion_80pin',
+    'M10_5': 'multiregion_80pin',
+    'M10_6': 'multiregion_80pin',
+    'M10_8': 'multiregion_80pin',
+    'M11_4': 'multiregion_80pin',
+    'M15_2': 'multiregion_80pin',
+    'M15_3': 'multiregion_80pin',
+    'M15_5': 'multiregion_80pin',
+    'M15_7': 'multiregion_80pin',
+    'M16_1': 'multiregion_80pin',
+    'M16_2': 'multiregion_80pin',
+    'M16_6': 'multiregion_80pin',
+    'M16_7': 'multiregion_80pin',
+    'M17_2': 'multiregion_80pin',
+    'M17_5': 'multiregion_80pin',
 }
 
 surgery_dates = {
@@ -21,12 +38,34 @@ surgery_dates = {
     'L14_5': '20240320',
     'L16_8': '20240320',
     'L17_7': '20240320',
-    # Long Term
+    # BlackRock Long Term
     '1_5': '20230627',
-    '5_7': '20230805',
-    '6_2': '20231019',
-    '6_7': '20231016',
-    '7_2': '20231019',
+    # Multi Region
+    'M9_6': '240128',
+    'M10_8': '240128',
+    'M11_4': '240128',
+    'M9_4': '240211',
+    'M9_7': '240211',
+    'M10_1': '240211',
+    'M10_5': '240211',
+    'M10_6': '240222',
+    'M9_8': '240316',
+    'M15_2': '240316',
+    'M15_5': '240316',
+    'M16_1': '240316',
+    'M16_2': '240316',
+    'M16_6': '240316',
+    'M17_2': '240316',
+    'M15_3': '240317',
+    'M15_7': '240317',
+    'M16_7': '240317',
+    'M17_5': '240317',
+    # Deep Brain 
+    'D12_6': '240304',
+    'D13_4': '240304',
+    'D13_8': '240304',
+    'D14_4': '240304',
+    'D14_6': '240304',
 }
 
 n_day_per_week = 7
