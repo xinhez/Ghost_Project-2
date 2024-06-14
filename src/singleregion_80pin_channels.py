@@ -73,8 +73,8 @@ def create_multi_shank_probe(savepath=None):
     multi_shank_probe = combine_probes(probes)
     multi_shank_probe.set_device_channel_indices(channel_indices.flatten())
 
-    plt.xlim(-150, 600)
-    plt.ylim(-200, 600)
+    plt.xlim(-150, 1000)
+    plt.ylim(-200, 700)
     plt.title(f'Probe - {n_channel}ch - {n_shank}shanks')
     if savepath is not None:
         plt.savefig(savepath, bbox_inches='tight')
