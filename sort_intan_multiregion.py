@@ -25,7 +25,10 @@ def read_recording(recording_paths, shank):
     files = []
     recording_start = 0
     for recording_path in recording_paths:
-        raw_data, data_present = load_file(recording_path)
+        try:
+            raw_data, data_present = load_file(recording_path)
+        except:
+            data_present = False
         if data_present:
             recording_channel_names = [channel['native_channel_name'] for channel in raw_data['amplifier_channels']]
             sampling_frequency = raw_data['frequency_parameters']['amplifier_sample_rate']
@@ -104,31 +107,34 @@ def sort(args, output_root, segment_paths, sorter_parameters):
 
         traces_folder = f'{output_root}/{region}/traces'
         os.makedirs(traces_folder, exist_ok=True)
-        traces = recording.get_traces().T
-        n_min_plotted = 10
-        duration = int(np.ceil(traces.shape[1] / recording.sampling_frequency / n_s_per_min))
-        for start_min in tqdm(range(0, duration, n_min_plotted)):
-            end_min = min(start_min + n_min_plotted, duration)
-            trace_plot_file = f'{traces_folder}/{start_min:03d}-{end_min:03d}.png'
-            if not os.path.isfile(trace_plot_file):
-                plotted_traces = traces[:, int(start_min * n_s_per_min * recording.sampling_frequency) : int(end_min * n_s_per_min * recording.sampling_frequency)]
-                plot_traces(
-                    plotted_traces, args.shank, recording.sampling_frequency, 
-                    channel_indices if args.shank < 0 else channel_indices[args.shank:args.shank+1], 
-                    title=f'{args.subject} -> {region} -> {"all" if args.shank < 0 else f"shank{args.shank}"}', 
-                    savepath=trace_plot_file
-                )
+        for segment, segment_recording in tqdm(enumerate(recordings)):
+            traces = segment_recording.get_traces().T
+            n_min_plotted = 10
+            duration = int(np.ceil(traces.shape[1] / segment_recording.sampling_frequency / n_s_per_min))
+            for start_min in range(0, duration, n_min_plotted):
+                end_min = min(start_min + n_min_plotted, duration)
+                trace_plot_file = f'{traces_folder}/segment{segment}-{start_min:03d}_{end_min:03d}.png'
+                if not os.path.isfile(trace_plot_file):
+                    plotted_traces = traces[:, int(start_min * n_s_per_min * segment_recording.sampling_frequency) : int(end_min * n_s_per_min * segment_recording.sampling_frequency)]
+                    plot_traces(
+                        plotted_traces, args.shank, segment_recording.sampling_frequency, 
+                        channel_indices if args.shank < 0 else channel_indices[args.shank:args.shank+1], 
+                        title=f'{args.subject} -> {region} -> {"all" if args.shank < 0 else f"shank{args.shank}"}', 
+                        savepath=trace_plot_file
+                    )
         print(f'\t...Plotted at {traces_folder}...')
 
         sorter_parameters['detect_interval'] = int(recording.sampling_frequency / n_ms_per_s * 0.3)
         sorting_folder = f'{output_root}/{region}/sorting{sorter_parameters["detect_threshold"]}'
         if not os.path.isfile(f'{sorting_folder}/sorter_output/firings.npz'):
+            print(f'Begin sorting at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
             ss.run_sorter(
                 sorter_name='mountainsort4',
                 recording=recording,
                 output_folder = sorting_folder,
                 remove_existing_folder=True,
                 with_output=False,
+                verbose=True,
                 **sorter_parameters,
             )
         sorting = se.NpzSortingExtractor(f'{sorting_folder}{os.sep}sorter_output{os.sep}firings.npz')
@@ -157,9 +163,9 @@ def sort(args, output_root, segment_paths, sorter_parameters):
 
         waveform_extractors = [sc.load_waveforms(folder=f'{waveform_folder}/segment{segment}', with_recording=False, sorting=sortings[segment]) for segment in range(n_segment)]
 
-        for segment, recording in enumerate(recordings):
-            recording.set_probe(probe, in_place=True)
-            waveform_extractors[segment].set_recording(recording)
+        for segment, segment_recording in enumerate(recordings):
+            segment_recording.set_probe(probe, in_place=True)
+            waveform_extractors[segment].set_recording(segment_recording)
             spost.compute_unit_locations(waveform_extractors[segment], load_if_exists=False)
         print(f'\t...Waveform extracted at {waveform_folder}...')
 
