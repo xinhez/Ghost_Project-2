@@ -62,7 +62,7 @@ def read_recording(recording_paths, shank):
     return recording_duration, recording_start, recordings, files
 
 
-def sort(args, output_root, segment_paths, sorter_parameters):
+def sort(args, output_root, segment_paths, sorter_parameters, sorted_region):
     session_info_file = f'{output_root}/session_info.csv'
 
     recording_folder = '{output_root}/{{region}}/recording/segment{{segment}}'.format(output_root=output_root)
@@ -98,6 +98,8 @@ def sort(args, output_root, segment_paths, sorter_parameters):
         probe = create_single_shank_probe(args.shank, f'{output_root}/probe.png')
 
     for region in active_channel_names.keys():
+        if sorted_region != 'all' and sorted_region != region: continue
+
         recordings = [
             sc.load_extractor(recording_folder.format(region=region, segment=segment)).set_probe(probe, in_place=True) 
             for segment in range(n_segment)
