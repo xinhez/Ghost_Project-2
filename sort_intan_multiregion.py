@@ -62,7 +62,7 @@ def read_recording(recording_paths, shank):
     return recording_duration, recording_start, recordings, files
 
 
-def sort(args, output_root, segment_paths, sorter_parameters, sorted_region, sorted_duration):
+def sort(args, output_root, segment_paths, sorter_parameters, sorted_region, sorted_duration, do_sorting):
     session_info_file = f'{output_root}/session_info.csv'
 
     recording_folder = '{output_root}/{{region}}/recording/segment{{segment}}'.format(output_root=output_root)
@@ -132,53 +132,54 @@ def sort(args, output_root, segment_paths, sorter_parameters, sorted_region, sor
                     )
         print(f'\t...Plotted at {traces_folder}...')
 
-        sorter_parameters['detect_interval'] = int(recording.sampling_frequency / n_ms_per_s * 0.3)
-        if not os.path.isfile(f'{sorting_folder}/sorter_output/firings.npz'):
-            print(f'Begin sorting at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
-            ss.run_sorter(
-                sorter_name='mountainsort4',
-                recording=recording,
-                output_folder = sorting_folder,
-                remove_existing_folder=True,
-                with_output=False,
-                verbose=True,
-                **sorter_parameters,
-            )
-        sorting = se.NpzSortingExtractor(f'{sorting_folder}{os.sep}sorter_output{os.sep}firings.npz')
-        # spikeinterface https://github.com/SpikeInterface/spikeinterface/pull/1378
-        sorting = scu.remove_excess_spikes(sorting, recording)  
-        sorting = sc.split_sorting(sorting, recordings)
-        sortings = [sc.select_segment_sorting(sorting, segment_indices=segment) for segment in range(n_segment)]
-        for segment, segment_sorting in enumerate(sortings):
-            segment_sorting_file = f'{sorting_folder}{os.sep}sorter_output{os.sep}segment{segment}_firings.npz'
-            if not os.path.isfile(segment_sorting_file):
-                se.NpzSortingExtractor.write_sorting(segment_sorting, segment_sorting_file)
-        print(f'\t...Sorted at {sorting_folder}...')
-
-        for segment in range(n_segment):
-            segment_waveform_folder = f'{waveform_folder}/segment{segment}'
-            if not os.path.isfile(f'{segment_waveform_folder}{os.sep}templates_average.npy'):
-                sc.extract_waveforms(
-                    recordings[segment], sortings[segment], 
-                    folder=segment_waveform_folder,
-                    ms_before=ms_before, ms_after=ms_after, max_spikes_per_unit=None,
-                    return_scaled=False,
-                    overwrite=True,
-                    use_relative_path=True,
+        if do_sorting == 1:
+            sorter_parameters['detect_interval'] = int(recording.sampling_frequency / n_ms_per_s * 0.3)
+            if not os.path.isfile(f'{sorting_folder}/sorter_output/firings.npz'):
+                print(f'Begin sorting at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+                ss.run_sorter(
+                    sorter_name='mountainsort4',
+                    recording=recording,
+                    output_folder = sorting_folder,
+                    remove_existing_folder=True,
+                    with_output=False,
+                    verbose=True,
+                    **sorter_parameters,
                 )
+            sorting = se.NpzSortingExtractor(f'{sorting_folder}{os.sep}sorter_output{os.sep}firings.npz')
+            # spikeinterface https://github.com/SpikeInterface/spikeinterface/pull/1378
+            sorting = scu.remove_excess_spikes(sorting, recording)  
+            sorting = sc.split_sorting(sorting, recordings)
+            sortings = [sc.select_segment_sorting(sorting, segment_indices=segment) for segment in range(n_segment)]
+            for segment, segment_sorting in enumerate(sortings):
+                segment_sorting_file = f'{sorting_folder}{os.sep}sorter_output{os.sep}segment{segment}_firings.npz'
+                if not os.path.isfile(segment_sorting_file):
+                    se.NpzSortingExtractor.write_sorting(segment_sorting, segment_sorting_file)
+            print(f'\t...Sorted at {sorting_folder}...')
 
-        waveform_extractors = [sc.load_waveforms(folder=f'{waveform_folder}/segment{segment}', with_recording=False, sorting=sortings[segment]) for segment in range(n_segment)]
+            for segment in range(n_segment):
+                segment_waveform_folder = f'{waveform_folder}/segment{segment}'
+                if not os.path.isfile(f'{segment_waveform_folder}{os.sep}templates_average.npy'):
+                    sc.extract_waveforms(
+                        recordings[segment], sortings[segment], 
+                        folder=segment_waveform_folder,
+                        ms_before=ms_before, ms_after=ms_after, max_spikes_per_unit=None,
+                        return_scaled=False,
+                        overwrite=True,
+                        use_relative_path=True,
+                    )
 
-        for segment, segment_recording in enumerate(recordings):
-            segment_recording.set_probe(probe, in_place=True)
-            waveform_extractors[segment].set_recording(segment_recording)
-            spost.compute_unit_locations(waveform_extractors[segment], load_if_exists=False)
-        print(f'\t...Waveform extracted at {waveform_folder}...')
+            waveform_extractors = [sc.load_waveforms(folder=f'{waveform_folder}/segment{segment}', with_recording=False, sorting=sortings[segment]) for segment in range(n_segment)]
 
-        init_date = datetime.datetime.strptime(surgery_dates[args.subject], '%Y%m%d')
-        os.makedirs(units_folder, exist_ok=True)
-        for unit_id in tqdm(sorting.unit_ids):
-            unit_plot_file = f'{units_folder}/{unit_id}.png'
-            if not os.path.isfile(unit_plot_file):
-                plot_unit(unit_id, session_info, init_date, waveform_extractors, channel_indices if args.shank < 0 else channel_indices[args.shank], savepath=unit_plot_file)
-        print(f'\t...Units plotted at {units_folder}...')
+            for segment, segment_recording in enumerate(recordings):
+                segment_recording.set_probe(probe, in_place=True)
+                waveform_extractors[segment].set_recording(segment_recording)
+                spost.compute_unit_locations(waveform_extractors[segment], load_if_exists=False)
+            print(f'\t...Waveform extracted at {waveform_folder}...')
+
+            init_date = datetime.datetime.strptime(surgery_dates[args.subject], '%Y%m%d')
+            os.makedirs(units_folder, exist_ok=True)
+            for unit_id in tqdm(sorting.unit_ids):
+                unit_plot_file = f'{units_folder}/{unit_id}.png'
+                if not os.path.isfile(unit_plot_file):
+                    plot_unit(unit_id, session_info, init_date, waveform_extractors, channel_indices if args.shank < 0 else channel_indices[args.shank], savepath=unit_plot_file)
+            print(f'\t...Units plotted at {units_folder}...')

@@ -57,6 +57,12 @@ def get_args():
         default='all',
         help='only in multi-region probe, specify the region to sort',
     )
+    parser.add_argument(
+        '--do_sorting',
+        type=int,
+        default='1',
+        help='1 for proceeding with sorting, 0 for skipping sorting',
+    )
     
     args = parser.parse_args()
     return args
@@ -74,7 +80,7 @@ def main(args):
 
     if 'multiregion' in probe_designs[args.subject]:
         from sort_intan_multiregion import sort 
-        sort(args, output_root, segment_paths, sorter_parameters, sorted_region=args.region, sorted_duration=args.sorted_duration)
+        sort(args, output_root, segment_paths, sorter_parameters, sorted_region=args.region, sorted_duration=args.sorted_duration, do_sorting=args.do_sorting)
     elif 'singleregion' in  probe_designs[args.subject]:
         from sort_intan_singleregion import sort 
         sort(args, output_root, segment_paths, sorter_parameters)
