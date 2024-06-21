@@ -101,9 +101,9 @@ def sort(args, output_root, segment_paths, sorter_parameters, sorted_region, sor
         if sorted_region != 'all' and sorted_region != region: continue
 
         traces_folder = f'{output_root}/{region}/traces'
-        sorting_folder = f'{output_root}/{region}/sorting{sorter_parameters["detect_threshold"]}'
-        waveform_folder = f'{output_root}/{region}/waveform{sorter_parameters["detect_threshold"]}'
-        units_folder = f'{output_root}/{region}/units{args.threshold}'
+        sorting_folder = f'{output_root}/{region}/sorting{sorter_parameters["detect_threshold"]}' + f'-{sorted_duration}min' if sorted_duration > 0 else ''
+        waveform_folder = f'{output_root}/{region}/waveform{sorter_parameters["detect_threshold"]}' + f'-{sorted_duration}min' if sorted_duration > 0 else ''
+        units_folder = f'{output_root}/{region}/units{args.threshold}' + f'-{sorted_duration}min' if sorted_duration > 0 else ''
 
         recordings = [
             sc.load_extractor(recording_folder.format(region=region, segment=segment)).set_probe(probe, in_place=True) 
