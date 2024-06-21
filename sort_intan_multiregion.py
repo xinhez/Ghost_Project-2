@@ -62,7 +62,7 @@ def read_recording(recording_paths, shank):
     return recording_duration, recording_start, recordings, files
 
 
-def sort(args, output_root, segment_paths, sorter_parameters, sorted_region):
+def sort(args, output_root, segment_paths, sorter_parameters, sorted_region, sorted_duration):
     session_info_file = f'{output_root}/session_info.csv'
 
     recording_folder = '{output_root}/{{region}}/recording/segment{{segment}}'.format(output_root=output_root)
@@ -100,14 +100,20 @@ def sort(args, output_root, segment_paths, sorter_parameters, sorted_region):
     for region in active_channel_names.keys():
         if sorted_region != 'all' and sorted_region != region: continue
 
+        traces_folder = f'{output_root}/{region}/traces'
+        sorting_folder = f'{output_root}/{region}/sorting{sorter_parameters["detect_threshold"]}'
+        waveform_folder = f'{output_root}/{region}/waveform{sorter_parameters["detect_threshold"]}'
+        units_folder = f'{output_root}/{region}/units{args.threshold}'
+
         recordings = [
             sc.load_extractor(recording_folder.format(region=region, segment=segment)).set_probe(probe, in_place=True) 
             for segment in range(n_segment)
         ]
+        if sorted_duration > 0:
+            recordings = [segment_recording.frame_slice(start_frame=0, end_frame=int(sorted_duration*n_s_per_min*segment_recording.sampling_frequency)) for segment_recording in recordings]
         recording = sc.concatenate_recordings(recordings).set_probe(probe, in_place=True)
         print(f'\t...Preprocessed at {recording_folder}...')
 
-        traces_folder = f'{output_root}/{region}/traces'
         os.makedirs(traces_folder, exist_ok=True)
         for segment, segment_recording in tqdm(enumerate(recordings)):
             traces = segment_recording.get_traces().T
@@ -127,7 +133,6 @@ def sort(args, output_root, segment_paths, sorter_parameters, sorted_region):
         print(f'\t...Plotted at {traces_folder}...')
 
         sorter_parameters['detect_interval'] = int(recording.sampling_frequency / n_ms_per_s * 0.3)
-        sorting_folder = f'{output_root}/{region}/sorting{sorter_parameters["detect_threshold"]}'
         if not os.path.isfile(f'{sorting_folder}/sorter_output/firings.npz'):
             print(f'Begin sorting at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
             ss.run_sorter(
@@ -150,7 +155,6 @@ def sort(args, output_root, segment_paths, sorter_parameters, sorted_region):
                 se.NpzSortingExtractor.write_sorting(segment_sorting, segment_sorting_file)
         print(f'\t...Sorted at {sorting_folder}...')
 
-        waveform_folder = f'{output_root}/{region}/waveform{sorter_parameters["detect_threshold"]}'
         for segment in range(n_segment):
             segment_waveform_folder = f'{waveform_folder}/segment{segment}'
             if not os.path.isfile(f'{segment_waveform_folder}{os.sep}templates_average.npy'):
@@ -172,7 +176,6 @@ def sort(args, output_root, segment_paths, sorter_parameters, sorted_region):
         print(f'\t...Waveform extracted at {waveform_folder}...')
 
         init_date = datetime.datetime.strptime(surgery_dates[args.subject], '%Y%m%d')
-        units_folder = f'{output_root}/{region}/units{args.threshold}'
         os.makedirs(units_folder, exist_ok=True)
         for unit_id in tqdm(sorting.unit_ids):
             unit_plot_file = f'{units_folder}/{unit_id}.png'
