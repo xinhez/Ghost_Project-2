@@ -12,12 +12,10 @@ from src.facts import probe_designs
 sorter_parameters = {
     'detect_sign': -1,
     'adjacency_radius': -1, 
-    'freq_min': 300, 
-    'freq_max': 3000,
+    'freq_min': None, 
+    'freq_max': None,
     'filter': False,
     'whiten': True,  
-    'clip_size': 50,
-    'num_workers': 8,
 }
 
 def get_args():
@@ -58,6 +56,12 @@ def get_args():
         help='only in multi-region probe, specify the region to sort',
     )
     parser.add_argument(
+        '--plot_traces',
+        type=int,
+        default='0',
+        help='1 for plotting the traces, 0 for skipping',
+    )
+    parser.add_argument(
         '--do_sorting',
         type=int,
         default='1',
@@ -80,7 +84,7 @@ def main(args):
 
     if 'multiregion' in probe_designs[args.subject]:
         from sort_intan_multiregion import sort 
-        sort(args, output_root, segment_paths, sorter_parameters, sorted_region=args.region, sorted_duration=args.sorted_duration, do_sorting=args.do_sorting)
+        sort(args, output_root, segment_paths, sorter_parameters)
     elif 'singleregion' in  probe_designs[args.subject]:
         from sort_intan_singleregion import sort 
         sort(args, output_root, segment_paths, sorter_parameters)

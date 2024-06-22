@@ -51,8 +51,6 @@ def read_recording(recording_paths, shank):
     for region, region_traces in traces.items():
         region_traces = np.hstack(region_traces)
         region_recording = se.NumpyRecording(traces_list=region_traces.T, sampling_frequency=sampling_frequency)
-        region_recording = spre.bandpass_filter(region_recording, freq_min=300, freq_max=3000)
-        region_recording = spre.common_reference(region_recording, reference='global', operator='median')
         if shank >= 0:
             region_recording = region_recording.channel_slice(channel_ids=channel_indices[shank])
         recordings[region] = region_recording
@@ -62,7 +60,7 @@ def read_recording(recording_paths, shank):
     return recording_duration, recording_start, recordings, files
 
 
-def sort(args, output_root, segment_paths, sorter_parameters, sorted_region, sorted_duration, do_sorting):
+def sort(args, output_root, segment_paths, sorter_parameters):
     session_info_file = f'{output_root}/session_info.csv'
 
     recording_folder = '{output_root}/{{region}}/recording/segment{{segment}}'.format(output_root=output_root)
@@ -98,49 +96,57 @@ def sort(args, output_root, segment_paths, sorter_parameters, sorted_region, sor
         probe = create_single_shank_probe(args.shank, f'{output_root}/probe.png')
 
     for region in active_channel_names.keys():
-        if sorted_region != 'all' and sorted_region != region: continue
+        if args.sorted_region != 'all' and args.sorted_region != region: continue
 
         traces_folder = f'{output_root}/{region}/traces'
-        sorting_folder = f'{output_root}/{region}/sorting{sorter_parameters["detect_threshold"]}' + f'-{sorted_duration}min' if sorted_duration > 0 else ''
-        waveform_folder = f'{output_root}/{region}/waveform{sorter_parameters["detect_threshold"]}' + f'-{sorted_duration}min' if sorted_duration > 0 else ''
-        units_folder = f'{output_root}/{region}/units{args.threshold}' + f'-{sorted_duration}min' if sorted_duration > 0 else ''
+        sorting_folder = f'{output_root}/{region}/sorting{sorter_parameters["detect_threshold"]}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
+        waveform_folder = f'{output_root}/{region}/waveform{sorter_parameters["detect_threshold"]}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
+        units_folder = f'{output_root}/{region}/units{args.threshold}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
 
         recordings = [
             sc.load_extractor(recording_folder.format(region=region, segment=segment)).set_probe(probe, in_place=True) 
             for segment in range(n_segment)
         ]
-        if sorted_duration > 0:
-            recordings = [segment_recording.frame_slice(start_frame=0, end_frame=int(sorted_duration*n_s_per_min*segment_recording.sampling_frequency)) for segment_recording in recordings]
+
+        for segment_index in range(n_segment):
+            recordings[segment_index] = spre.bandpass_filter(recordings[segment_index], freq_min=300, freq_max=6000)
+            recordings[segment_index] = spre.common_reference(recordings[segment_index], reference='global', operator='median')
+
+        if args.plot_traces == 1:
+            os.makedirs(traces_folder, exist_ok=True)
+            for segment, segment_recording in tqdm(enumerate(recordings)):
+                traces = segment_recording.get_traces().T
+                n_min_plotted = 10
+                duration = int(np.ceil(traces.shape[1] / segment_recording.sampling_frequency / n_s_per_min))
+                for start_min in range(0, duration, n_min_plotted):
+                    end_min = min(start_min + n_min_plotted, duration)
+                    trace_plot_file = f'{traces_folder}/segment{segment}-{start_min:03d}_{end_min:03d}.png'
+                    if not os.path.isfile(trace_plot_file):
+                        plotted_traces = traces[:, int(start_min * n_s_per_min * segment_recording.sampling_frequency) : int(end_min * n_s_per_min * segment_recording.sampling_frequency)]
+                        plot_traces(
+                            plotted_traces, args.shank, segment_recording.sampling_frequency, 
+                            channel_indices if args.shank < 0 else channel_indices[args.shank:args.shank+1], 
+                            title=f'{args.subject} -> {region} -> {"all" if args.shank < 0 else f"shank{args.shank}"}', 
+                            savepath=trace_plot_file
+                        )
+            print(f'\t...Plotted at {traces_folder}...')
+
+        if args.sorted_duration > 0:
+            recordings = [segment_recording.frame_slice(start_frame=0, end_frame=int(args.sorted_duration*n_s_per_min*segment_recording.sampling_frequency)) for segment_recording in recordings]
         recording = sc.concatenate_recordings(recordings).set_probe(probe, in_place=True)
         print(f'\t...Preprocessed at {recording_folder}...')
-
-        os.makedirs(traces_folder, exist_ok=True)
-        for segment, segment_recording in tqdm(enumerate(recordings)):
-            traces = segment_recording.get_traces().T
-            n_min_plotted = 10
-            duration = int(np.ceil(traces.shape[1] / segment_recording.sampling_frequency / n_s_per_min))
-            for start_min in range(0, duration, n_min_plotted):
-                end_min = min(start_min + n_min_plotted, duration)
-                trace_plot_file = f'{traces_folder}/segment{segment}-{start_min:03d}_{end_min:03d}.png'
-                if not os.path.isfile(trace_plot_file):
-                    plotted_traces = traces[:, int(start_min * n_s_per_min * segment_recording.sampling_frequency) : int(end_min * n_s_per_min * segment_recording.sampling_frequency)]
-                    plot_traces(
-                        plotted_traces, args.shank, segment_recording.sampling_frequency, 
-                        channel_indices if args.shank < 0 else channel_indices[args.shank:args.shank+1], 
-                        title=f'{args.subject} -> {region} -> {"all" if args.shank < 0 else f"shank{args.shank}"}', 
-                        savepath=trace_plot_file
-                    )
-        print(f'\t...Plotted at {traces_folder}...')
-
-        if do_sorting == 1:
-            sorter_parameters['detect_interval'] = int(recording.sampling_frequency / n_ms_per_s * 0.3)
+        print(recording)
+        
+        if args.do_sorting == 1:
+            sorter_parameters['detect_interval'] = int(round(recording.sampling_frequency / n_ms_per_s * 0.33))
+            sorter_parameters['clip_size'] = int(round(recording.sampling_frequency / n_ms_per_s * (ms_before + ms_after)))
             if not os.path.isfile(f'{sorting_folder}/sorter_output/firings.npz'):
                 print(f'Begin sorting at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
                 ss.run_sorter(
                     sorter_name='mountainsort4',
                     recording=recording,
                     output_folder = sorting_folder,
-                    remove_existing_folder=True,
+                    remove_existing_folder=False,
                     with_output=False,
                     verbose=True,
                     **sorter_parameters,
@@ -164,7 +170,7 @@ def sort(args, output_root, segment_paths, sorter_parameters, sorted_region, sor
                         folder=segment_waveform_folder,
                         ms_before=ms_before, ms_after=ms_after, max_spikes_per_unit=None,
                         return_scaled=False,
-                        overwrite=True,
+                        overwrite=False,
                         use_relative_path=True,
                     )
 
