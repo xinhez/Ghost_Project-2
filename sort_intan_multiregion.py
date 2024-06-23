@@ -160,7 +160,12 @@ def sort(args, segment_paths, sorter_parameters):
             print(f'\t...Plotted at {processed_traces_folder}...')
 
         if args.sorted_duration > 0:
-            recordings = [segment_recording.frame_slice(start_frame=0, end_frame=int(args.sorted_duration*n_s_per_min*segment_recording.sampling_frequency)) for segment_recording in recordings]
+            recordings = [
+                segment_recording.frame_slice(
+                    start_frame=0, 
+                    end_frame=min(segment_recording.get_num_frames(), int(args.sorted_duration*n_s_per_min*segment_recording.sampling_frequency))
+                ) for segment_recording in recordings
+            ]
         recording = sc.concatenate_recordings(recordings).set_probe(probe, in_place=True)
         print(f'\t...Preprocessed at {recording_folder}...')
         print(recording)

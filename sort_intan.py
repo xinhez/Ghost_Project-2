@@ -47,8 +47,8 @@ def get_args():
     parser.add_argument(
         '--sorted_duration',
         type=int,
-        default=15,
-        help='duration (min) to sort',
+        default=0,
+        help='duration (min) to sort, 0 for all',
     )
     parser.add_argument(
         '--sorted_region',
