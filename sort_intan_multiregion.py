@@ -20,7 +20,7 @@ from src.facts import *
 from src.multiregion_80pin_channels import *
 from src.plot import plot_unit, plot_traces
 
-def read_recording(recording_paths, shank):
+def read_recording(recording_paths):
     traces = { region: [] for region in active_channel_names.keys() }
     files = []
     recording_start = 0
@@ -51,8 +51,6 @@ def read_recording(recording_paths, shank):
     for region, region_traces in traces.items():
         region_traces = np.hstack(region_traces)
         region_recording = se.NumpyRecording(traces_list=region_traces.T, sampling_frequency=sampling_frequency)
-        if shank >= 0:
-            region_recording = region_recording.channel_slice(channel_ids=channel_indices[shank])
         recordings[region] = region_recording
 
     files = pd.json_normalize(files)
@@ -60,10 +58,14 @@ def read_recording(recording_paths, shank):
     return recording_duration, recording_start, recordings, files
 
 
-def sort(args, output_root, segment_paths, sorter_parameters):
-    session_info_file = f'{output_root}/session_info.csv'
+def sort(args, segment_paths, sorter_parameters):
+    output_prefix = f'data/processed/{args.subject}'
+    output_root = f'{output_prefix}/{"all" if args.shank < 0 else f"shank{args.shank}"}'
+    os.makedirs(output_root, exist_ok=True)
+    
+    session_info_file = f'{output_prefix}/all/session_info.csv'
+    recording_folder = '{output_prefix}/all/{{region}}/recording/segment{{segment}}'.format(output_prefix=output_prefix)
 
-    recording_folder = '{output_root}/{{region}}/recording/segment{{segment}}'.format(output_root=output_root)
     if not os.path.isfile(session_info_file):
         recordings = { region: [] for region in active_channel_names.keys() }   
         session_info = []
@@ -72,7 +74,7 @@ def sort(args, output_root, segment_paths, sorter_parameters):
         for segment_path in segment_paths:
 
             recording_paths = sorted(glob.glob(f'{segment_path}/*.rhd'))
-            segment_duration, segment_length, segment_recordings, segment_files = read_recording(recording_paths, args.shank)
+            segment_duration, segment_length, segment_recordings, segment_files = read_recording(recording_paths)
             if segment_duration >= args.min_duration:
                 for region, segment_region_recording in segment_recordings.items():
                     recordings[region].append(segment_region_recording)
@@ -98,15 +100,21 @@ def sort(args, output_root, segment_paths, sorter_parameters):
     for region in active_channel_names.keys():
         if args.sorted_region != 'all' and args.sorted_region != region: continue
 
-        traces_folder = f'{output_root}/{region}/traces'
+        traces_folder = f'{output_prefix}/all/{region}/traces'
         sorting_folder = f'{output_root}/{region}/sorting{sorter_parameters["detect_threshold"]}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
         waveform_folder = f'{output_root}/{region}/waveform{sorter_parameters["detect_threshold"]}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
         units_folder = f'{output_root}/{region}/units{args.threshold}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
 
         recordings = [
-            sc.load_extractor(recording_folder.format(region=region, segment=segment)).set_probe(probe, in_place=True) 
+            sc.load_extractor(recording_folder.format(region=region, segment=segment)) 
             for segment in range(n_segment)
         ]
+        
+        for segment_index in range(n_segment):
+            if args.shank < 0:
+                recordings[segment_index] = recordings[segment_index].set_probe(probe)
+            else:
+                recordings[segment_index] = recordings[segment_index].channel_slice(channel_ids=channel_indices[args.shank]).set_probe(probe)
 
         for segment_index in range(n_segment):
             recordings[segment_index] = spre.bandpass_filter(recordings[segment_index], freq_min=300, freq_max=6000)
@@ -139,7 +147,7 @@ def sort(args, output_root, segment_paths, sorter_parameters):
         
         if args.do_sorting == 1:
             sorter_parameters['detect_interval'] = int(round(recording.sampling_frequency / n_ms_per_s * 0.33))
-            sorter_parameters['clip_size'] = int(round(recording.sampling_frequency / n_ms_per_s * (ms_before + ms_after)))
+            # sorter_parameters['clip_size'] = int(round(recording.sampling_frequency / n_ms_per_s * (1 + 1)))
             if not os.path.isfile(f'{sorting_folder}/sorter_output/firings.npz'):
                 print(f'Begin sorting at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
                 ss.run_sorter(

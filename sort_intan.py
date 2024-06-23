@@ -16,6 +16,7 @@ sorter_parameters = {
     'freq_max': None,
     'filter': False,
     'whiten': True,  
+    'num_workers': None,
 }
 
 def get_args():
@@ -34,7 +35,7 @@ def get_args():
     parser.add_argument(
         '--threshold',
         type=float,
-        default=3.0,
+        default=4.5,
         help='sorting detect threshold',
     )
     parser.add_argument(
@@ -50,7 +51,7 @@ def get_args():
         help='duration (min) to sort',
     )
     parser.add_argument(
-        '--region',
+        '--sorted_region',
         type=str,
         default='all',
         help='only in multi-region probe, specify the region to sort',
@@ -73,9 +74,7 @@ def get_args():
 
 
 def main(args):
-    output_root = f'data/processed/{args.subject}/{"all" if args.shank < 0 else f"shank{args.shank}"}'
     segment_paths = sorted(glob.glob(f'data/raw/{args.subject}/**/**'))
-    print(f'Saving to {output_root}')
     print(f'Sorting {args.subject} with {len(segment_paths)} segment(s):')
     for segment_index, segment_path in enumerate(segment_paths):
         print(f'    [{segment_index+1:3d}] {segment_path}')
@@ -84,10 +83,10 @@ def main(args):
 
     if 'multiregion' in probe_designs[args.subject]:
         from sort_intan_multiregion import sort 
-        sort(args, output_root, segment_paths, sorter_parameters)
+        sort(args, segment_paths, sorter_parameters)
     elif 'singleregion' in  probe_designs[args.subject]:
         from sort_intan_singleregion import sort 
-        sort(args, output_root, segment_paths, sorter_parameters)
+        sort(args, segment_paths, sorter_parameters)
     else:
         raise Exception("Not implemented!!!")
 

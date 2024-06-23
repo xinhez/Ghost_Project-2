@@ -72,7 +72,7 @@ n_day_per_week = 7
 n_s_per_min = 60
 n_ms_per_s = 1000
 ms_before, ms_after = 2, 2
-total_week = 20
+total_week = 12
 
 window_ms = 150
 bin_ms = 1.5

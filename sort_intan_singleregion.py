@@ -54,7 +54,9 @@ def read_recording(recording_paths, shank):
     return recording_duration, recording_start, recording, files
 
 
-def sort(args, output_root, segment_paths, sorter_parameters):
+def sort(args, segment_paths, sorter_parameters):
+    output_root = f'data/processed/{args.subject}/{"all" if args.shank < 0 else f"shank{args.shank}"}'
+
     session_info_file = f'{output_root}/session_info.csv'
 
     recording_folder = f'{output_root}/recording'
