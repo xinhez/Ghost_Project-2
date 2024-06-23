@@ -105,7 +105,7 @@ def plot_unit(unit_id, session_info, init_date, waveform_extractors, channel_ind
             extremum_channel_indices = np.argsort(channel_indices)
         extremum_channels.append(extremum_channel)
 
-        segment_waveforms = sample_objects(waveform_extractor.get_waveforms(unit_id)[:, :, extremum_channel_indices], max_n=100)
+        segment_waveforms = sample_objects(waveform_extractor.get_waveforms(unit_id)[:, :, extremum_channel_indices], max_n=1000)
         segment_templates = waveform_extractor.get_template(unit_id)[:, extremum_channel_indices]
         waveforms.append(segment_waveforms.transpose(0, 2, 1).reshape(segment_waveforms.shape[0], segment_waveforms.shape[1]*segment_waveforms.shape[2]))
         templates.append(segment_templates.T.flatten())

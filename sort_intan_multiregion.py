@@ -147,7 +147,6 @@ def sort(args, segment_paths, sorter_parameters):
         
         if args.do_sorting == 1:
             sorter_parameters['detect_interval'] = int(round(recording.sampling_frequency / n_ms_per_s * 0.33))
-            # sorter_parameters['clip_size'] = int(round(recording.sampling_frequency / n_ms_per_s * (1 + 1)))
             if not os.path.isfile(f'{sorting_folder}/sorter_output/firings.npz'):
                 print(f'Begin sorting at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
                 ss.run_sorter(
