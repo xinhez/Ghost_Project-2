@@ -47,7 +47,7 @@ def get_args():
     parser.add_argument(
         '--sorted_duration',
         type=int,
-        default=10,
+        default=15,
         help='duration (min) to sort',
     )
     parser.add_argument(
