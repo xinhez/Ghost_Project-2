@@ -77,3 +77,4 @@ total_week = 12
 window_ms = 150
 bin_ms = 1.5
 isi_threshold_ms = 1.5
+detect_interval_ms = 0.33

@@ -16,7 +16,6 @@ sorter_parameters = {
     'freq_max': None,
     'filter': False,
     'whiten': True,  
-    'num_workers': None,
 }
 
 def get_args():
@@ -59,13 +58,13 @@ def get_args():
     parser.add_argument(
         '--plot_traces',
         type=int,
-        default='0',
+        default=0,
         help='1 for plotting the traces, 0 for skipping',
     )
     parser.add_argument(
         '--do_sorting',
         type=int,
-        default='1',
+        default=1,
         help='1 for proceeding with sorting, 0 for skipping sorting',
     )
     

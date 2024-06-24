@@ -171,7 +171,7 @@ def sort(args, segment_paths, sorter_parameters):
         print(recording)
         
         if args.do_sorting == 1:
-            sorter_parameters['detect_interval'] = int(round(recording.sampling_frequency / n_ms_per_s * 0.33))
+            sorter_parameters['detect_interval'] = int(round(recording.sampling_frequency / n_ms_per_s * detect_interval_ms))
             if not os.path.isfile(f'{sorting_folder}/sorter_output/firings.npz'):
                 print(f'Begin sorting at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
                 ss.run_sorter(
@@ -183,6 +183,7 @@ def sort(args, segment_paths, sorter_parameters):
                     verbose=True,
                     **sorter_parameters,
                 )
+                print(f'End sorting at {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
             sorting = se.NpzSortingExtractor(f'{sorting_folder}{os.sep}sorter_output{os.sep}firings.npz')
             # spikeinterface https://github.com/SpikeInterface/spikeinterface/pull/1378
             sorting = scu.remove_excess_spikes(sorting, recording)  
