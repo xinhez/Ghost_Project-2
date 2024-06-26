@@ -30,7 +30,7 @@ def compute_isi_violation_rate(spike_train_ms, window_ms, bin_ms, isi_threshold_
     if (len(isi) == 0) or (isi.min() > window_ms):
         return [], [], 0
     else:
-        ys, bin_edges = np.histogram(isi, bins=bins, density=True)
+        ys, bin_edges = np.histogram(isi, bins=bins)
         xs = bin_edges[:-1]
         rate = (isi < isi_threshold_ms).sum() / len(isi)
         return xs, ys, rate
