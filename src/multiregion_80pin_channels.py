@@ -42,6 +42,11 @@ nrows, ncols = 4, 2
 inter_electrode_distance = 30
 electrode_radius = 10
 
+def find_shank(channel_index):
+    for shank, shank_channels in enumerate(channel_indices):
+        if channel_index in shank_channels:
+            return shank
+
 def create_multi_shank_probe(savepath=None):
     plt.rcParams.update({'font.size': 8})
     n_shank = len(channel_indices)

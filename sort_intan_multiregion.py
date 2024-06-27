@@ -19,6 +19,7 @@ from src.importrhdutilities import load_file
 from src.facts import *
 from src.multiregion_80pin_channels import *
 from src.plot import plot_unit, plot_traces
+from src.process import *
 
 def read_recording(recording_paths):
     traces = { region: [] for region in active_channel_names.keys() }
@@ -105,6 +106,13 @@ def sort(args, segment_paths, sorter_parameters):
         sorting_folder = f'{output_root}/{region}/sorting{sorter_parameters["detect_threshold"]}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
         waveform_folder = f'{output_root}/{region}/waveform{sorter_parameters["detect_threshold"]}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
         units_folder = f'{output_root}/{region}/units{args.threshold}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
+        filtered_units_folder = f'{output_root}/{region}/filtered_units{args.threshold}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
+
+
+        ################################################################################################################################################################
+        if os.path.isdir(units_folder): continue
+        ################################################################################################################################################################
+
 
         recordings = [
             sc.load_extractor(recording_folder.format(region=region, segment=segment)) 
@@ -137,8 +145,7 @@ def sort(args, segment_paths, sorter_parameters):
             print(f'\t...Plotted at {traces_folder}...')
 
         for segment_index in range(n_segment):
-            recordings[segment_index] = spre.bandpass_filter(recordings[segment_index], freq_min=300, freq_max=6000)
-            recordings[segment_index] = spre.common_reference(recordings[segment_index], reference='global', operator='median')
+            recordings[segment_index] = preprocess(recordings[segment_index])
 
         if args.plot_traces == 1:
             os.makedirs(processed_traces_folder, exist_ok=True)
@@ -222,3 +229,10 @@ def sort(args, segment_paths, sorter_parameters):
                 if not os.path.isfile(unit_plot_file):
                     plot_unit(unit_id, session_info, init_date, waveform_extractors, channel_indices if args.shank < 0 else channel_indices[args.shank], savepath=unit_plot_file)
             print(f'\t...Units plotted at {units_folder}...')
+            
+            os.makedirs(filtered_units_folder, exist_ok=True)
+            for unit_id in tqdm(sorting.unit_ids):
+                unit_plot_file = f'{filtered_units_folder}/{unit_id}.png'
+                if not os.path.isfile(unit_plot_file):
+                    plot_unit(unit_id, session_info, init_date, waveform_extractors, channel_indices if args.shank < 0 else channel_indices[args.shank], savepath=unit_plot_file, do_filter_waveforms=True)
+            print(f'\t...Units plotted at {filtered_units_folder}...')

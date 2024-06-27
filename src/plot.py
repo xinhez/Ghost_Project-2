@@ -8,6 +8,8 @@ import spikeinterface.core as sc
 import spikeinterface.widgets as sw
 import sys 
 
+from sklearn.metrics.pairwise import cosine_similarity
+
 sys.path.append('src')
 
 from src.facts import *
@@ -77,7 +79,7 @@ def sample_objects(objects, max_n=None):
 
 def plot_unit(unit_id, session_info, init_date, waveform_extractors, channel_indices, savepath,
               plot_types=['autocorrelogram', 'location', 'probe_map', 'template_map', 'template_extremum', 'template', 'waveforms', 'ISI', 'UMAP'],
-              subplot_size=5, min_spikes=10):
+              subplot_size=5, min_spikes=10, min_firing_rate=0.1, max_symmetry=0.95, do_filter_waveforms=False):
     plt.rcParams.update({'font.size': 25})
     plot_fns = {
         'autocorrelogram': plot_autocorrelogram, 
@@ -105,8 +107,22 @@ def plot_unit(unit_id, session_info, init_date, waveform_extractors, channel_ind
             extremum_channel_indices = np.argsort(channel_indices)
         extremum_channels.append(extremum_channel)
 
-        segment_waveforms = sample_objects(waveform_extractor.get_waveforms(unit_id)[:, :, extremum_channel_indices], max_n=1000)
+        segment_waveforms = waveform_extractor.get_waveforms(unit_id)[:, :, extremum_channel_indices]
+        segment_firing_rate = len(segment_waveforms) / waveform_extractor.get_total_duration()
+        if do_filter_waveforms and (segment_firing_rate < min_firing_rate):
+            segment_waveforms = sample_objects(segment_waveforms, max_n=0)
+        else:
+            segment_waveforms = sample_objects(segment_waveforms, max_n=1000)
         segment_templates = waveform_extractor.get_template(unit_id)[:, extremum_channel_indices]
+
+        
+        n_frames_per_ms = int(waveform_extractor.sampling_frequency / n_ms_per_s)
+        extremum_template = segment_templates[:, extremum_channel]
+        template_symmetry = cosine_similarity([extremum_template[:ms_before*n_frames_per_ms]], [extremum_template[ms_before*n_frames_per_ms:][::-1]]).item()
+        
+        if do_filter_waveforms and (template_symmetry > max_symmetry):
+            segment_waveforms = sample_objects(segment_waveforms, max_n=0)
+
         waveforms.append(segment_waveforms.transpose(0, 2, 1).reshape(segment_waveforms.shape[0], segment_waveforms.shape[1]*segment_waveforms.shape[2]))
         templates.append(segment_templates.T.flatten())
 
