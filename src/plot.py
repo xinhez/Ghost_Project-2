@@ -98,6 +98,8 @@ def plot_unit(unit_id, session_info, init_date, waveform_extractors, channel_ind
     waveforms, templates, extremum_channels, dates = [], [], [], []
     for segment, segment_path in enumerate(session_info['segment_path'].unique()):
         waveform_extractor = waveform_extractors[segment]
+        n_frames_per_ms = int(waveform_extractor.sampling_frequency / n_ms_per_s)
+
         extremum_channel = sc.get_template_extremum_channel(waveform_extractor, peak_sign='neg')[unit_id]
         extremum_channel = np.where(waveform_extractors[segment].channel_ids == extremum_channel)[0].item()
         if len(channel_indices.shape) > 1:
@@ -109,20 +111,20 @@ def plot_unit(unit_id, session_info, init_date, waveform_extractors, channel_ind
 
         segment_waveforms = waveform_extractor.get_waveforms(unit_id)[:, :, extremum_channel_indices]
         segment_firing_rate = len(segment_waveforms) / waveform_extractor.get_total_duration()
+
         if do_filter_waveforms and (segment_firing_rate < min_firing_rate):
             segment_waveforms = sample_objects(segment_waveforms, max_n=0)
         else:
             segment_waveforms = sample_objects(segment_waveforms, max_n=1000)
-        segment_templates = waveform_extractor.get_template(unit_id)[:, extremum_channel_indices]
+        segment_templates = waveform_extractor.get_template(unit_id)
 
-        
-        n_frames_per_ms = int(waveform_extractor.sampling_frequency / n_ms_per_s)
         extremum_template = segment_templates[:, extremum_channel]
         template_symmetry = cosine_similarity([extremum_template[:ms_before*n_frames_per_ms]], [extremum_template[ms_before*n_frames_per_ms:][::-1]]).item()
         
         if do_filter_waveforms and (template_symmetry > max_symmetry):
             segment_waveforms = sample_objects(segment_waveforms, max_n=0)
 
+        segment_templates = segment_templates[:, extremum_channel_indices]
         waveforms.append(segment_waveforms.transpose(0, 2, 1).reshape(segment_waveforms.shape[0], segment_waveforms.shape[1]*segment_waveforms.shape[2]))
         templates.append(segment_templates.T.flatten())
 
