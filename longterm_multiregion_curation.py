@@ -226,4 +226,15 @@ excluded_segments = {
             41: 'all',
         },
     },
+    'M15_7': {
+        'region1': {
+            5: 'all',
+            11: 'all',
+            31: 'all',
+        },
+        'region2': {
+            3: 'all',
+            55: 'all',
+        }
+    }
 }
