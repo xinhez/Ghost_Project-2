@@ -140,6 +140,31 @@ excluded_segments = {
             48: 'all',
             49: 'all',
             50: 'all',
-        }
+        },
     },
+    'M10_6': {
+        'region1': {
+            1: 'all',
+            4: 'all',
+            5: 'all',
+            7: 'all',
+            8: 'all',
+            9: 'all',
+            10: 'all',
+            11: 'all',
+            13: 'all',
+            14: 'all',
+            15: 'all',
+            16: 'all',
+            17: 'all',
+            18: 'all',
+            36: 'all',
+        },
+        'region2': {
+            14: 'all',
+            23: 'all',
+            37: 'all',
+            44: 'all',
+        }
+    }
 }
