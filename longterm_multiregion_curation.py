@@ -255,6 +255,82 @@ excluded_segments = {
             34: 'all',
             38: 'all',
             39: 'all',
+        },
+    },
+    'M16_2': {
+        'region1': {
+            3: 'all',
+            4: 'all',
+            5: 'all',
+            6: 'all',
+            7: 'all',
+            8: 'all',
+            9: 'all',
+            12: 'all',
+            16: 'all',
+            19: 'all',
+        },
+        'region2': {
+            18: 'all',
+            25: 'all',
+            26: 'all',
+            39: 'all',
+            43: 'all',
+            45: 'all',
+            47: [3],
+        },
+    },
+    'M16_6': {
+        'region1': {
+            1: 'all',
+            5: 'all',
+            7: 'all',
+            28: 'all',
+            30: [1],
+        },
+        'region2': {
+            4: 'all',
+            7: 'all',
+            32: 'all',
+        },
+    },
+    'M16_7': {
+        'region1': {
+            5: 'all',
+            6: 'all',
+            10: 'all',
+            11: 'all',
+            31: 'all',
+        },
+        'region2': {
+        },
+    },
+    'M17_2': {
+        'region1': {
+            7: 'all',
+            11: 'all',
+        },
+        'region2': {
+            30: 'all',
+            34: 'all',
+        },
+    },
+    'M17_5': {
+        'region1': {
+            6: 'all',
+            9: 'all',
+            14: 'all',
+            20: 'all',
+            30: [3],
+            44: [4],
+        },
+        'region2': {
+            11: 'all',
+            12: 'all',
+            15: 'all',
+            19: 'all',
+            33: 'all',
+            43: 'all',
         }
     }
 }
