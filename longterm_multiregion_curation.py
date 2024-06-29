@@ -235,6 +235,26 @@ excluded_segments = {
         'region2': {
             3: 'all',
             55: 'all',
+        },
+    },
+    'M16_1': {
+        'region1': {
+            10: [2, 3],
+            17: 'all',
+            29: 'all',
+            47: 'all',
+            48: 'all',
+            76: 'all',
+        },
+        'region2': {
+            5: 'all',
+            19: 'all',
+            26: 'all',
+            28: 'all',
+            33: 'all',
+            34: 'all',
+            38: 'all',
+            39: 'all',
         }
     }
 }
