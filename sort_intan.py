@@ -67,6 +67,12 @@ def get_args():
         default=1,
         help='1 for proceeding with sorting, 0 for skipping sorting',
     )
+    parser.add_argument(
+        '--max_symmetry',
+        type=float,
+        default=0.95,
+        help='similarity threshold for filtering waveforms',
+    )
     
     args = parser.parse_args()
     return args

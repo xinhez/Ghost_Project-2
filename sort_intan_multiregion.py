@@ -106,13 +106,7 @@ def sort(args, segment_paths, sorter_parameters):
         sorting_folder = f'{output_root}/{region}/sorting{sorter_parameters["detect_threshold"]}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
         waveform_folder = f'{output_root}/{region}/waveform{sorter_parameters["detect_threshold"]}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
         units_folder = f'{output_root}/{region}/units{args.threshold}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
-        filtered_units_folder = f'{output_root}/{region}/filtered_units{args.threshold}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
-
-
-        ################################################################################################################################################################
-        if os.path.isdir(units_folder): continue
-        ################################################################################################################################################################
-
+        filtered_units_folder = f'{output_root}/{region}/filtered_units{args.threshold}-th{args.max_symmetry}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
 
         recordings = [
             sc.load_extractor(recording_folder.format(region=region, segment=segment)) 
@@ -129,7 +123,7 @@ def sort(args, segment_paths, sorter_parameters):
             os.makedirs(traces_folder, exist_ok=True)
             for segment, segment_recording in tqdm(enumerate(recordings)):
                 traces = segment_recording.get_traces().T
-                n_min_plotted = 10
+                n_min_plotted = 15
                 duration = int(np.ceil(traces.shape[1] / segment_recording.sampling_frequency / n_s_per_min))
                 for start_min in range(0, duration, n_min_plotted):
                     end_min = min(start_min + n_min_plotted, duration)
@@ -151,7 +145,7 @@ def sort(args, segment_paths, sorter_parameters):
             os.makedirs(processed_traces_folder, exist_ok=True)
             for segment, segment_recording in tqdm(enumerate(recordings)):
                 traces = segment_recording.get_traces().T
-                n_min_plotted = 10
+                n_min_plotted = 15
                 duration = int(np.ceil(traces.shape[1] / segment_recording.sampling_frequency / n_s_per_min))
                 for start_min in range(0, duration, n_min_plotted):
                     end_min = min(start_min + n_min_plotted, duration)
@@ -234,5 +228,5 @@ def sort(args, segment_paths, sorter_parameters):
             for unit_id in tqdm(sorting.unit_ids):
                 unit_plot_file = f'{filtered_units_folder}/{unit_id}.png'
                 if not os.path.isfile(unit_plot_file):
-                    plot_unit(unit_id, session_info, init_date, waveform_extractors, channel_indices if args.shank < 0 else channel_indices[args.shank], savepath=unit_plot_file, do_filter_waveforms=True)
+                    plot_unit(unit_id, session_info, init_date, waveform_extractors, channel_indices if args.shank < 0 else channel_indices[args.shank], savepath=unit_plot_file, do_threshold_waveforms=True, do_filter_waveforms=True, max_symmetry=args.max_symmetry)
             print(f'\t...Units plotted at {filtered_units_folder}...')
