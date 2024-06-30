@@ -1,43 +1,43 @@
-# threshold = 4.5
-excluded_segments = {
-    'M9_7': {
-        'region1': {
-            1: [7],
-            3: 'all',
-            7: [4],
-            9: [7],
-            17: 'all',
-            19: 'all',
-            28: 'all',
-            32: 'all',
-            34: 'all',
-            39: 'all'
-        },
-        'region2': {
-            2: [6],
-            5: 'all',
-            7: 'all', 
-            8: 'all', 
-            9: 'all', 
-            11: 'all', 
-            12: 'all', 
-            13: 'all', 
-            19: [7],
-            26: 'all',
-            30: 'all',
-            31: 'all',
-            33: 'all',
-            36: 'all',
-            38: [0],
-            41: [0],
-            43: [0],
-            49: [2],
-            50: 'all',
-            51: 'all',
-            52: 'all',
-        }
-    },
-}
+# # threshold = 4.5
+# excluded_segments = {
+#     'M9_7': {
+#         'region1': {
+#             1: [7],
+#             3: 'all',
+#             7: [4],
+#             9: [7],
+#             17: 'all',
+#             19: 'all',
+#             28: 'all',
+#             32: 'all',
+#             34: 'all',
+#             39: 'all'
+#         },
+#         'region2': {
+#             2: [6],
+#             5: 'all',
+#             7: 'all', 
+#             8: 'all', 
+#             9: 'all', 
+#             11: 'all', 
+#             12: 'all', 
+#             13: 'all', 
+#             19: [7],
+#             26: 'all',
+#             30: 'all',
+#             31: 'all',
+#             33: 'all',
+#             36: 'all',
+#             38: [0],
+#             41: [0],
+#             43: [0],
+#             49: [2],
+#             50: 'all',
+#             51: 'all',
+#             52: 'all',
+#         }
+#     },
+# }
 
 # threshold = 5.5
 # symmetry = 0.95
@@ -285,8 +285,11 @@ excluded_segments = {
             1: 'all',
             5: 'all',
             7: 'all',
+            9: 'all',
             28: 'all',
             30: [1],
+            32: 'all',
+            34: [3],
         },
         'region2': {
             4: 'all',
@@ -303,6 +306,7 @@ excluded_segments = {
             31: 'all',
         },
         'region2': {
+            41: 'all',
         },
     },
     'M17_2': {
@@ -311,6 +315,7 @@ excluded_segments = {
             11: 'all',
         },
         'region2': {
+            10: [2],
             30: 'all',
             34: 'all',
         },
