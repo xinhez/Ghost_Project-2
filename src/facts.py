@@ -71,6 +71,8 @@ surgery_dates = {
 n_day_per_week = 7
 n_s_per_min = 60
 n_ms_per_s = 1000
+n_uV_per_mV = 1000
+n_mV_per_V = 1000
 ms_before, ms_after = 2, 2
 total_week = 12
 
