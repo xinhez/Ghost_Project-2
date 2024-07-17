@@ -1,6 +1,3 @@
-import matplotlib 
-matplotlib.use('Agg')
-
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -34,7 +31,7 @@ active_channel_names = {
 }
 
 channel_indices = np.array([
-    [ 0,  1,  2,  3,  7, 6, 5, 4], #4,  5,  6,  7],
+    [ 0,  1,  2,  3,  7,  6,  5,  4], #4,  5,  6,  7],
     [ 8,  9, 10, 11, 15, 14, 13, 12], #12, 13, 14, 15],
     [16, 17, 18, 19, 23, 22, 21, 20], #20, 21, 22, 23],
     [24, 25, 26, 27, 31, 30, 29, 28], #28, 29, 30, 31],
@@ -44,6 +41,11 @@ shank_locations = np.array([(0, 300), (100, 150), (200, 0), (300, 150), (400, 30
 nrows, ncols = 4, 2
 inter_electrode_distance = 30
 electrode_radius = 10
+
+def find_shank(channel_index):
+    for shank, shank_channels in enumerate(channel_indices):
+        if channel_index in shank_channels:
+            return shank
 
 def create_multi_shank_probe(savepath=None):
     plt.rcParams.update({'font.size': 8})

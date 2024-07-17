@@ -12,12 +12,10 @@ from src.facts import probe_designs
 sorter_parameters = {
     'detect_sign': -1,
     'adjacency_radius': -1, 
-    'freq_min': 300, 
-    'freq_max': 3000,
+    'freq_min': None, 
+    'freq_max': None,
     'filter': False,
     'whiten': True,  
-    'clip_size': 50,
-    'num_workers': None,
 }
 
 def get_args():
@@ -36,7 +34,7 @@ def get_args():
     parser.add_argument(
         '--threshold',
         type=float,
-        default=3.0,
+        default=4.5,
         help='sorting detect threshold',
     )
     parser.add_argument(
@@ -45,14 +43,43 @@ def get_args():
         default=10,
         help='minimum duration (min) to consider as valid data',
     )
+    parser.add_argument(
+        '--sorted_duration',
+        type=int,
+        default=0,
+        help='duration (min) to sort, 0 for all',
+    )
+    parser.add_argument(
+        '--sorted_region',
+        type=str,
+        default='all',
+        help='only in multi-region probe, specify the region to sort',
+    )
+    parser.add_argument(
+        '--plot_traces',
+        type=int,
+        default=0,
+        help='1 for plotting the traces, 0 for skipping',
+    )
+    parser.add_argument(
+        '--do_sorting',
+        type=int,
+        default=1,
+        help='1 for proceeding with sorting, 0 for skipping sorting',
+    )
+    parser.add_argument(
+        '--max_symmetry',
+        type=float,
+        default=0.95,
+        help='similarity threshold for filtering waveforms',
+    )
+    
     args = parser.parse_args()
     return args
 
 
 def main(args):
-    output_root = f'data/processed/{args.subject}/{"all" if args.shank < 0 else f"shank{args.shank}"}'
     segment_paths = sorted(glob.glob(f'data/raw/{args.subject}/**/**'))
-    print(f'Saving to {output_root}')
     print(f'Sorting {args.subject} with {len(segment_paths)} segment(s):')
     for segment_index, segment_path in enumerate(segment_paths):
         print(f'    [{segment_index+1:3d}] {segment_path}')
@@ -61,10 +88,10 @@ def main(args):
 
     if 'multiregion' in probe_designs[args.subject]:
         from sort_intan_multiregion import sort 
-        sort(args, output_root, segment_paths, sorter_parameters)
+        sort(args, segment_paths, sorter_parameters)
     elif 'singleregion' in  probe_designs[args.subject]:
         from sort_intan_singleregion import sort 
-        sort(args, output_root, segment_paths, sorter_parameters)
+        sort(args, segment_paths, sorter_parameters)
     else:
         raise Exception("Not implemented!!!")
 
