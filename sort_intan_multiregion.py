@@ -103,10 +103,10 @@ def sort(args, segment_paths, sorter_parameters):
 
         traces_folder = f'{output_prefix}/all/{region}/traces'
         processed_traces_folder = f'{output_prefix}/all/{region}/processed-traces'
-        sorting_folder = f'{output_root}/{region}/sorting{sorter_parameters["detect_threshold"]}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
-        waveform_folder = f'{output_root}/{region}/waveform{sorter_parameters["detect_threshold"]}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
-        units_folder = f'{output_root}/{region}/units{args.threshold}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
-        filtered_units_folder = f'{output_root}/{region}/filtered_units{args.threshold}-th{args.max_symmetry}' + f'-{args.sorted_duration}min' if args.sorted_duration > 0 else ''
+        sorting_folder = f'{output_root}/{region}/sorting{sorter_parameters["detect_threshold"]}' + (f'-{args.sorted_duration}min' if args.sorted_duration > 0 else '')
+        waveform_folder = f'{output_root}/{region}/waveform{sorter_parameters["detect_threshold"]}' + (f'-{args.sorted_duration}min' if args.sorted_duration > 0 else '')
+        units_folder = f'{output_root}/{region}/units{args.threshold}' + (f'-{args.sorted_duration}min' if args.sorted_duration > 0 else '')
+        filtered_units_folder = f'{output_root}/{region}/filtered_units{args.threshold}-th{args.max_symmetry}' + (f'-{args.sorted_duration}min' if args.sorted_duration > 0 else '')
 
         recordings = [
             sc.load_extractor(recording_folder.format(region=region, segment=segment)) 
