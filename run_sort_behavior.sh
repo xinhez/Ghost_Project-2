@@ -1,8 +1,8 @@
 #!/bin/bash
 
-export subjects=(M16_1 M15_7 M15_5 M15_3 M15_2)
-export thresholds=(5.5 6.5 4.5 3.5)
-export run_sorts=(False True)
+export subjects=(M15_7 M15_5 M15_2 M15_3 M16_1)
+export thresholds=(4.5 5.5) 
+export run_sorts=(True) # False 
 export regions=(CA1 M1)
 
 for threshold in ${thresholds[@]}
