@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export subjects=(M15_7 M15_5 M15_2 M15_3 M16_1)
-export thresholds=(4.5 5.5) 
+export thresholds=(3.5) 
 export run_sorts=(True) # False 
 export regions=(CA1 M1)
 
